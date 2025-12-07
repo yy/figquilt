@@ -19,11 +19,43 @@ class PDFComposer:
         doc = fitz.open()
         page = doc.new_page(width=self.width_pt, height=self.height_pt)
 
+        # Draw background if specified
+        if self.layout.page.background:
+            # simple color parsing: strict names or hex?
+            # PyMuPDF draw_rect color expects sequence of floats (0..1) or nothing.
+            # We need to robustly parse the color string from layout (e.g. "white", "#f0f0f0").
+            # fitz.utils.getColor? No, fitz doesn't have a robust color parser built-in for all CSS names.
+            # But the user example uses "#f0f0f0".
+            # Minimal hex parser:
+            col = self._parse_color(self.layout.page.background)
+            if col:
+                 page.draw_rect(page.rect, color=col, fill=col)
+
         # Draw panels
         for i, panel in enumerate(self.layout.panels):
             self._place_panel(doc, page, panel, index=i)
         
         return doc
+    
+    def _parse_color(self, color_str: str):
+        # Very basic hex support
+        if color_str.startswith("#"):
+            h = color_str.lstrip('#')
+            try:
+                rgb = tuple(int(h[i:i+2], 16)/255.0 for i in (0, 2, 4))
+                return rgb
+            except:
+                return None
+        # Basic name support mapping could be added here
+        # For now, just support hex or fallback to None (skip)
+        # Using PIL ImageColor is an option if we import it, but we want minimal dep for this file?
+        # We process images, so PIL is available.
+        try:
+            from PIL import ImageColor
+            rgb = ImageColor.getrgb(color_str)
+            return tuple(c/255.0 for c in rgb)
+        except:
+             return None
 
     def _place_panel(self, doc: fitz.Document, page: fitz.Page, panel: Panel, index: int):
         # Calculate position and size first
@@ -74,13 +106,6 @@ class PDFComposer:
 
     def _draw_label(self, page: fitz.Page, panel: Panel, rect: fitz.Rect, index: int):
         # Determine effective label settings
-        # Priority: Panel specific > Page default
-        # But panel.label_style is optional, page.label is required (defaulted)
-        
-        # Merge logic is a bit complex if we want partial overrides.
-        # For v0 simplicity: if panel has style, use it fully, else use page style.
-        # But commonly we want to just change text but keep style.
-        
         style = panel.label_style if panel.label_style else self.layout.page.label
         
         if not style.enabled:
@@ -96,28 +121,18 @@ class PDFComposer:
         if style.uppercase:
             text = text.upper()
 
-        # Calculate label position
-        # Offset is from top-left of the panel (rect.tl)
-        # x direction: + is right, - is left? 
-        # Usually offset is inside the panel, so +x and +y from top-left.
-        # But if user wants negative offset?
-        # Let's assume offset is in mm relative to panel top-left.
+        # Position logic
+        # Design doc: offset is relative to top-left.
+        # SVG implementation uses 'hanging' baseline, so (0,0) is top-left of text char.
+        # PyMuPDF insert_text uses 'baseline', so (0,0) is bottom-left of text char.
+        # We need to shift Y down by approximately the font sizing to match SVG visual.
         
         pos_x = rect.x0 + mm_to_pt(style.offset_x_mm)
-        pos_y = rect.y0 - mm_to_pt(style.offset_y_mm) # y grows down in PDF usually?
-        # PyMuPDF y grows down (0 at top).
-        # if offset_y_mm is negative (e.g. -2), it means 2mm DOWN?
-        # Wait, design doc said: "offset: x: 2, y: -2".
-        # Usually graphics y is up, but PDF/Screen often y is down.
-        # Let's interpret y: -2 as "2mm down from top edge". 
-        # So essentially we ADD the offset if we consider the standard top-left origin.
-        # But if the value is negative in the config, we should probably subtract it?
-        # Let's stick to: pos = origin + offset.
+        raw_y = rect.y0 + mm_to_pt(style.offset_y_mm)
         
-        pos_y = rect.y0 + mm_to_pt(style.offset_y_mm) # standard addition.
-        # If user puts negative, it goes up (outside panel).
-        # Design doc example has y: -2. Maybe they meant 2mm margin?
-        # Let's assume standard vector addition.
+        # Approximate baseline shift: font_size
+        # (A more precise way uses font.ascender, but for basic standard fonts, size is decent proxy for visual top->baseline)
+        pos_y = raw_y + style.font_size_pt
 
         # Font - PyMuPDF supports base 14 fonts by name
         fontname = "helv"  # default mapping for Helvetica

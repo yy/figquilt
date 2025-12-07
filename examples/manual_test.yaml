@@ -1,0 +1,43 @@
+page:
+  width: 180
+  height: 120
+  units: mm
+  background: "#f0f0f0"  # Light gray background to see page boundaries
+
+layout:
+  label:
+    font_size_pt: 10
+    offset_x_mm: 3
+    offset_y_mm: 3
+
+panels:
+  # PDF Square - Top Left
+  - id: A
+    file: "assets/A_square.pdf"
+    x: 10
+    y: 10
+    width: 40
+
+  # PDF Wide - Top Right
+  - id: B
+    file: "assets/B_wide.pdf"
+    x: 60
+    y: 10
+    width: 80 
+    # Height auto-calculated based on aspect ratio (2:1 -> height 40)
+
+  # PNG Tall - Bottom Left
+  - id: C
+    file: "assets/C_tall.png"
+    x: 10
+    y: 60
+    width: 30
+    # Height should be 60
+
+  # SVG - Bottom Right
+  - id: D
+    file: "assets/D_icon.svg"
+    x: 60
+    y: 60
+    width: 40
+    label: "Icon"

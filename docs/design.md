@@ -336,42 +336,6 @@ panels:
 ## 9. Development plan (for AI coding assistants)
 
 
-## 9. Development Plan & Milestones
 
-This plan outlines the roadmap for the initial v0 release.
-
-### 9.1 Milestone 1 - Skeleton & Layout Parsing
-- [ ] Initialize Python package structure with `uv`
-- [ ] Create `Layout` and `Panel` pydantic models
-- [ ] Implement YAML parsing and validation logic
-- [ ] Create basic CLI entry point (`figquilt`)
-- [ ] Add tests for layout validation (valid/invalid cases)
-
-### 9.2 Milestone 2 - PDF Composition Engine
-- [ ] Select PDF backend (PyMuPDF / fitz recommended for speed and features)
-- [ ] Implement mm to point conversion helpers
-- [ ] Implement single panel placement
-- [ ] Implement multi-panel composition
-- [ ] Add basic label drawing (text) logic
-- [ ] Integration test: composed PDF from two input PDFs
-
-### 9.3 Milestone 3 - SVG and PNG Support
-- [ ] Implement SVG backend (using `lxml` or similar)
-- [ ] Implement PNG backend (using `Pillow`) and resolution/DPI handling
-- [ ] Add integration tests for mixed media input (PDF + PNG + SVG)
-
-### 9.4 Milestone 4 - Polish & Release
-- [ ] Refine CLI error messages
-- [ ] Add documentation (API docs + User guide)
-- [ ] Finalize CI/CD pipeline (tests, linting)
-- [ ] Publish initial version
-
-## 10. Development Guidelines
-
-1.  **Clarity over cleverness**: Use small, named functions. Avoid heavy metaprogramming.
-2.  **Minimal Dependencies**: Stick to standard library + `PyMuPDF` (PDF), `Pillow` (Image), `PyYAML`, `pydantic`.
-3.  **Testing**: Use `pytest`. Cover layout parsing, unit conversions, and basic composition logic.
-4.  **Error Messages**: Make them human-readable and specific (e.g., "File not found: 'foo.pdf' in panel A").
-5.  **Documentation**: Keep docstrings concise and useful.
 
 
