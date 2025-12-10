@@ -63,7 +63,8 @@ def test_realistic_composition(tmp_path, realistic_assets):
     layout_data = {
         "page": {
             "width": 180,  # mm (approx full width for journals)
-            "height": 150  # mm
+            "height": 150,  # mm
+            "units": "mm"
         },
         "panels": [
             {
