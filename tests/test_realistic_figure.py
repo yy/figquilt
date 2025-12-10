@@ -109,4 +109,10 @@ def test_realistic_composition(tmp_path, realistic_assets):
     assert out_pdf.exists()
     assert out_pdf.stat().st_size > 0
 
-    # We could inspect the PDF content if needed, but existence is a good start.
+    # Copy to examples folder for inspection
+    examples_dir = Path("examples")
+    if examples_dir.exists():
+        import shutil
+        target_path = examples_dir / "realistic_figure.pdf"
+        shutil.copy(out_pdf, target_path)
+        print(f"\nGenerated example figure saved to: {target_path}")
