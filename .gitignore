@@ -212,3 +212,4 @@ examples/*.pdf
 examples/*.svg
 examples/*.png
 examples/realistic_test_output/
+.claude/settings.local.json

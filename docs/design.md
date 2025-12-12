@@ -331,6 +331,10 @@ panels:
 	5.	Rust core
 	•	Reimplement core composition engine in Rust later, keeping the same CLI and layout spec, with Python as a thin wrapper if needed.
 
+### 8.6 Auto-fill Layout
+	•	Input: A list of figure files. Optionally, a rough figure dimensions (width and approximate aspect ratio)
+	•	Output: Automatically computed layout that tiles them efficiently based on their aspect ratios.
+
 ⸻
 
 ## 9. Development plan (for AI coding assistants)
