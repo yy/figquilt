@@ -5,8 +5,8 @@ page:
   background: "#f0f0f0"  # Light gray background to see page boundaries
   label:
     font_size_pt: 10
-    offset_x_mm: 3
-    offset_y_mm: 3
+    offset_x: 3
+    offset_y: 3
 
 panels:
   # PDF Square - Top Left
