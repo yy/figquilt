@@ -2,22 +2,31 @@ from pathlib import Path
 import base64
 from lxml import etree
 from .layout import Layout, Panel
-from .units import mm_to_pt
+from .units import mm_to_pt, in_to_pt
 from .errors import FigQuiltError
 import fitz
 
 class SVGComposer:
     def __init__(self, layout: Layout):
         self.layout = layout
-        self.width_pt = mm_to_pt(layout.page.width)
-        self.height_pt = mm_to_pt(layout.page.height)
+        self.width_pt = self._to_pt(layout.page.width)
+        self.height_pt = self._to_pt(layout.page.height)
+    
+    def _to_pt(self, value: float) -> float:
+        if self.layout.page.units == "in":
+            return in_to_pt(value)  
+        elif self.layout.page.units == "mm":
+            return mm_to_pt(value)  
+        
+        return value
 
     def compose(self, output_path: Path):
         # Create root SVG element
         nsmap = {None: "http://www.w3.org/2000/svg", "xlink": "http://www.w3.org/1999/xlink"}
         root = etree.Element("svg", nsmap=nsmap)
-        root.set("width", f"{self.layout.page.width}mm")
-        root.set("height", f"{self.layout.page.height}mm")
+        unit = self.layout.page.units  # "mm", "in", or "pt"
+        root.set("width", f"{self.layout.page.width}{unit}")
+        root.set("height", f"{self.layout.page.height}{unit}")
         root.set("viewBox", f"0 0 {self.width_pt} {self.height_pt}")
         root.set("version", "1.1")
         
@@ -38,9 +47,9 @@ class SVGComposer:
             tree.write(f, pretty_print=True, xml_declaration=True, encoding="utf-8")
 
     def _place_panel(self, root: etree.Element, panel: Panel, index: int):
-        x = mm_to_pt(panel.x)
-        y = mm_to_pt(panel.y)
-        w = mm_to_pt(panel.width)
+        x = self._to_pt(panel.x)
+        y = self._to_pt(panel.y)
+        w = self._to_pt(panel.width)
         
         # Determine content sizing
         # For simplicity in V0, relying on fitz for aspect ratio of all inputs (robust)
@@ -53,7 +62,7 @@ class SVGComposer:
             raise FigQuiltError(f"Failed to inspect panel {panel.file}: {e}")
 
         if panel.height is not None:
-            h = mm_to_pt(panel.height)
+            h = self._to_pt(panel.height)
         else:
             h = w * aspect
 
@@ -132,8 +141,8 @@ class SVGComposer:
             text_str = text_str.upper()
 
         # Offset (relative to panel top-left, which is 0,0 inside the group)
-        x = mm_to_pt(style.offset_x_mm)
-        y = mm_to_pt(style.offset_y_mm)
+        x = self._to_pt(style.offset_x)
+        y = self._to_pt(style.offset_y)
         
         # Create text element
         txt = etree.SubElement(parent, "text")

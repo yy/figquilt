@@ -7,8 +7,8 @@ class LabelStyle(BaseModel):
     auto_sequence: bool = True
     font_family: str = "Helvetica"
     font_size_pt: float = 8.0
-    offset_x_mm: float = 2.0
-    offset_y_mm: float = 2.0
+    offset_x: float = 2.0
+    offset_y: float = 2.0
     bold: bool = True
     uppercase: bool = True
 

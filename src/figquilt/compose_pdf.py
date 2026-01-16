@@ -1,14 +1,21 @@
 import fitz
 from pathlib import Path
 from .layout import Layout, Panel
-from .units import mm_to_pt
+from .units import mm_to_pt, in_to_pt
 from .errors import FigQuiltError
 
 class PDFComposer:
     def __init__(self, layout: Layout):
         self.layout = layout
-        self.width_pt = mm_to_pt(layout.page.width)
-        self.height_pt = mm_to_pt(layout.page.height)
+        self.width_pt = self._to_pt(layout.page.width)
+        self.height_pt = self._to_pt(layout.page.height)
+
+    def _to_pt(self, value: float) -> float:
+        if self.layout.page.units == "in":
+            return in_to_pt(value)  
+        elif self.layout.page.units == "mm":
+            return mm_to_pt(value)  
+        return value
 
     def compose(self, output_path: Path):
         doc = self.build()
@@ -59,9 +66,9 @@ class PDFComposer:
 
     def _place_panel(self, doc: fitz.Document, page: fitz.Page, panel: Panel, index: int):
         # Calculate position and size first
-        x = mm_to_pt(panel.x)
-        y = mm_to_pt(panel.y)
-        w = mm_to_pt(panel.width)
+        x = self._to_pt(panel.x)
+        y = self._to_pt(panel.y)
+        w = self._to_pt(panel.width)
         
         # Determine height from aspect ratio if needed
         # We need to open the source to get aspect ratio
@@ -84,7 +91,7 @@ class PDFComposer:
         aspect = src_rect.height / src_rect.width
         
         if panel.height is not None:
-             h = mm_to_pt(panel.height)
+             h = self._to_pt(panel.height)
         else:
             h = w * aspect
 
@@ -127,8 +134,8 @@ class PDFComposer:
         # PyMuPDF insert_text uses 'baseline', so (0,0) is bottom-left of text char.
         # We need to shift Y down by approximately the font sizing to match SVG visual.
         
-        pos_x = rect.x0 + mm_to_pt(style.offset_x_mm)
-        raw_y = rect.y0 + mm_to_pt(style.offset_y_mm)
+        pos_x = rect.x0 + self._to_pt(style.offset_x)
+        raw_y = rect.y0 + self._to_pt(style.offset_y)
         
         # Approximate baseline shift: font_size
         # (A more precise way uses font.ascender, but for basic standard fonts, size is decent proxy for visual top->baseline)
