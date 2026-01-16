@@ -3,8 +3,6 @@ page:
   height: 120
   units: mm
   background: "#f0f0f0"  # Light gray background to see page boundaries
-
-layout:
   label:
     font_size_pt: 10
     offset_x_mm: 3
