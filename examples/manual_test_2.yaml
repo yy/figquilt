@@ -13,37 +13,37 @@ page:
 
 panels:
   - id: A
-    file: "/data3/jpmalone/LLM_belief_prediction_results/figures/mean_ablation_demo_vs_blind.pdf"
+    file: "/assets/asset1.pdf"
     x: 0
     y: 0
     width: 3.2
 
   - id: B
-    file: "/data3/jpmalone/LLM_belief_prediction_results/figures/mean_ablation_ctx_vs_demo.pdf"
+    file: "/assets/asset2.pdf"
     x: 3.2
     y: 0
     width: 3.2
     
   - id: C
-    file: "/data3/jpmalone/LLM_belief_prediction_results/figures/mean_ablation_syn_vs_ctx.pdf"
+    file: "/assets/asset3.pdf"
     x: 6.4
     y: 0
     width: 3.2
 
   - id: D
-    file: "/data3/jpmalone/LLM_belief_prediction_results/figures/ensemble_ablation_demo_vs_blind.pdf"
+    file: "/assets/asset4.pdf"
     x: 0
     y: 2.4
     width: 3.2
 
   - id: E
-    file: "/data3/jpmalone/LLM_belief_prediction_results/figures/ensemble_ablation_ctx_vs_demo.pdf"
+    file: "/assets/asset5.pdf"
     x: 3.2
     y: 2.4
     width: 3.2
 
   - id: F
-    file: "/data3/jpmalone/LLM_belief_prediction_results/figures/ensemble_ablation_syn_vs_ctx.pdf"
+    file: "/assets/asset6.pdf"
     x: 6.4
     y: 2.4
     width: 3.2
