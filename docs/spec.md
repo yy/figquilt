@@ -90,7 +90,9 @@ A `LayoutNode` can be a **Container** (holding other nodes) or a **Leaf** (holdi
 1.  **Implicit Sizing**: A leaf node takes the size of its grid cell.
     *   `fit: "contain"` (default): Scale to fit within the cell, preserving aspect ratio. May leave empty space.
     *   `fit: "cover"`: Scale to cover the entire cell, preserving aspect ratio. Overflow is clipped.
-2.  **Explicit Panels Mode**: When using `panels` (legacy mode), each panel specifies explicit `x`, `y`, `width`, and optionally `height`.
+2.  **Explicit Sizing in Grid Layouts (Discouraged)**: When using `layout`-based grids, avoid setting explicit `width` or `height` on leaf panels. Let the grid define panel sizes for predictable, responsive layouts.
+    *   If explicit `width`/`height` are provided on a leaf within a grid, they override the cell-derived size and may break intended ratios or alignments.
+3.  **Explicit Panels Mode**: When using `panels` (legacy mode), each panel specifies explicit `x`, `y`, `width`, and optionally `height`.
     *   If `height` is omitted, it is computed from the source aspect ratio to preserve proportions.
 
 ## Examples
