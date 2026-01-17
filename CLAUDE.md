@@ -35,6 +35,12 @@ figquilt --format svg layout.yaml output.svg  # Override output format
 figquilt --watch layout.yaml output.pdf       # Watch mode: rebuild on changes
 ```
 
+### Publishing to PyPI
+```bash
+rm -rf dist && uv build    # Clean old builds, then build
+uv publish                 # Publish to PyPI
+```
+
 ## Architecture
 
 ### Source Structure (`src/figquilt/`)
