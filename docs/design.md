@@ -299,9 +299,9 @@ figquilt/
 
 These are out-of-scope for v0, but useful to keep in mind when designing the data model.
 
-### 8.1 Grid-based layout helpers (✅ Implemented)
+### 8.1 Grid-based layout helpers
 
-Grid-based layout is now implemented using `row` and `col` container types. Example:
+Grid-based layout is implemented in v0 using `row` and `col` container types. Example:
 
 ```yaml
 layout:
