@@ -25,6 +25,7 @@ uv run pytest -k "test_parse"       # Run tests matching pattern
 figquilt layout.yaml output.pdf     # Basic usage
 figquilt --check layout.yaml        # Validate layout without output
 figquilt --format svg layout.yaml output.svg  # Override output format
+figquilt --watch layout.yaml output.pdf       # Watch mode: rebuild on changes
 ```
 
 ## Architecture

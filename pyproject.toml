@@ -1,6 +1,6 @@
 [project]
 name = "figquilt"
-version = "0.1.1"
+version = "0.1.2"
 description = "figquilt is a small, language-agnostic CLI tool that composes multiple figures (PDF/SVG/PNG) into a single publication-ready figure, based on a simple layout file (YAML/JSON). The key function is creating a PDF by composing multiple PDFs and adding subfigure labels and minimal annotations."
 readme = "README.md"
 authors = [
@@ -22,6 +22,7 @@ dependencies = [
     "pymupdf>=1.26.6",
     "pyyaml>=6.0.3",
     "seaborn>=0.13.2",
+    "watchfiles>=1.0.0",
 ]
 
 [project.scripts]

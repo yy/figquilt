@@ -59,3 +59,13 @@ Run `figquilt` to generate the figure:
 ```bash
 figquilt figure1.yaml figure1.pdf
 ```
+
+### Watch Mode
+
+Use `--watch` to automatically rebuild when the layout file or any panel source files change:
+
+```bash
+figquilt --watch figure1.yaml figure1.pdf
+```
+
+This is useful during layout iteration - edit your YAML or regenerate a panel, and the output updates automatically.
