@@ -7,6 +7,13 @@ authors = [
     { name = "YY Ahn", email = "yongyeol@gmail.com" }
 ]
 requires-python = ">=3.12"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "lxml>=6.0.2",
     "matplotlib>=3.10.7",
@@ -19,6 +26,10 @@ dependencies = [
 
 [project.scripts]
 figquilt = "figquilt.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/yy/figquilt"
+Repository = "https://github.com/yy/figquilt"
 
 [build-system]
 requires = ["uv_build>=0.8.12,<0.9.0"]

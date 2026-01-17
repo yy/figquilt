@@ -14,18 +14,22 @@
 
 ## Installation
 
-This project uses `uv` for dependency management.
+```bash
+uv tool install figquilt
+```
+
+Or add it as a project dependency:
 
 ```bash
-# Clone the repository
+uv add figquilt
+```
+
+### Development Installation
+
+```bash
 git clone https://github.com/yy/figquilt.git
 cd figquilt
-
-# Install dependencies and set up the environment
 uv sync
-
-# Install the package in editable mode
-uv pip install -e .
 ```
 
 ## Usage
