@@ -157,6 +157,7 @@ Options:
   --check                  # validate layout, report issues, no output
   --watch                  # watch for changes and rebuild automatically
   --verbose                # extra logging
+  --version                # print version and exit
   --help
 ```
 
