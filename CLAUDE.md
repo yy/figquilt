@@ -62,7 +62,7 @@ uv publish                 # Publish to PyPI
 5. Composer iterates panels: loads source file, computes dimensions (respecting aspect ratio), places at coordinates, draws labels
 
 ### Key Design Decisions
-- Layout coordinates use the units specified in `page.units` (mm, inches, or pt); label offsets are always in mm
+- All dimensions use `page.units` (mm, inches, or pt) - no hardcoded unit types
 - Origin (0,0) is at top-left of page
 - Panel height is optional; if omitted, computed from source aspect ratio to preserve proportions
 - Labels auto-sequence A, B, C... by default unless overridden per-panel

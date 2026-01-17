@@ -3,11 +3,6 @@ def mm_to_pt(mm: float) -> float:
     return mm * 72 / 25.4
 
 
-def pt_to_mm(pt: float) -> float:
-    """Converts points to millimeters."""
-    return pt * 25.4 / 72
-
-
 def inches_to_pt(inches: float) -> float:
     """Converts inches to points (1 inch = 72 pts)."""
     return inches * 72

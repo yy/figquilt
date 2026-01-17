@@ -2,7 +2,7 @@ from pathlib import Path
 import base64
 from lxml import etree
 from .layout import Layout, Panel
-from .units import mm_to_pt, to_pt
+from .units import to_pt
 from .errors import FigQuiltError
 import fitz
 
@@ -179,8 +179,8 @@ class SVGComposer:
             text_str = text_str.upper()
 
         # Offset relative to the content position
-        x = offset_x + mm_to_pt(style.offset_x_mm)
-        y = offset_y + mm_to_pt(style.offset_y_mm)
+        x = offset_x + to_pt(style.offset_x, self.units)
+        y = offset_y + to_pt(style.offset_y, self.units)
 
         # Create text element
         txt = etree.SubElement(parent, "text")

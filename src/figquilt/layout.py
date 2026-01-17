@@ -13,10 +13,12 @@ class LabelStyle(BaseModel):
     auto_sequence: bool = Field(True, description="Auto-generate labels A, B, C...")
     font_family: str = Field("Helvetica", description="Font family for labels")
     font_size_pt: float = Field(8.0, description="Font size in points")
-    offset_x_mm: float = Field(
-        2.0, description="Horizontal offset from panel edge (mm)"
+    offset_x: float = Field(
+        2.0, description="Horizontal offset from panel edge (in page units)"
     )
-    offset_y_mm: float = Field(2.0, description="Vertical offset from panel edge (mm)")
+    offset_y: float = Field(
+        2.0, description="Vertical offset from panel edge (in page units)"
+    )
     bold: bool = Field(True, description="Use bold font")
     uppercase: bool = Field(True, description="Use uppercase letters")
 

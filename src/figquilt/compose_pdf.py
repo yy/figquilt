@@ -1,7 +1,7 @@
 import fitz
 from pathlib import Path
 from .layout import Layout, Panel
-from .units import mm_to_pt, to_pt
+from .units import to_pt
 from .errors import FigQuiltError
 
 
@@ -155,8 +155,8 @@ class PDFComposer:
         # PyMuPDF insert_text uses 'baseline', so (0,0) is bottom-left of text char.
         # We need to shift Y down by approximately the font sizing to match SVG visual.
 
-        pos_x = rect.x0 + mm_to_pt(style.offset_x_mm)
-        raw_y = rect.y0 + mm_to_pt(style.offset_y_mm)
+        pos_x = rect.x0 + to_pt(style.offset_x, self.units)
+        raw_y = rect.y0 + to_pt(style.offset_y, self.units)
 
         # Approximate baseline shift: font_size
         # (A more precise way uses font.ascender, but for basic standard fonts, size is decent proxy for visual top->baseline)

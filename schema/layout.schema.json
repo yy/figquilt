@@ -137,15 +137,15 @@
           "default": 8.0,
           "description": "Font size in points"
         },
-        "offset_x_mm": {
+        "offset_x": {
           "type": "number",
           "default": 2.0,
-          "description": "Horizontal offset from panel edge (mm)"
+          "description": "Horizontal offset from panel edge (in page units)"
         },
-        "offset_y_mm": {
+        "offset_y": {
           "type": "number",
           "default": 2.0,
-          "description": "Vertical offset from panel edge (mm)"
+          "description": "Vertical offset from panel edge (in page units)"
         },
         "bold": {
           "type": "boolean",

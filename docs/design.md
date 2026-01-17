@@ -215,8 +215,8 @@ class LabelStyle:
     auto_sequence: bool
     font_family: str
     font_size_pt: float
-    offset_x_mm: float
-    offset_y_mm: float
+    offset_x: float  # in page units
+    offset_y: float  # in page units
     bold: bool
 ```
 
