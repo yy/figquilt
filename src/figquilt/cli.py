@@ -7,6 +7,7 @@ import threading
 from .parser import parse_layout
 from .errors import FigQuiltError
 from .layout import Layout
+from .grid import resolve_layout
 
 
 def get_watched_paths(layout_path: Path, layout: Layout) -> Tuple[Set[Path], Set[Path]]:
@@ -18,7 +19,8 @@ def get_watched_paths(layout_path: Path, layout: Layout) -> Tuple[Set[Path], Set
     """
     layout_path = layout_path.resolve()
     files = {layout_path}
-    for panel in layout.panels:
+    panels = resolve_layout(layout)
+    for panel in panels:
         files.add(panel.file.resolve())
     dirs = {f.parent for f in files}
     return files, dirs
@@ -34,12 +36,13 @@ def compose_figure(
     """
     try:
         layout = parse_layout(layout_path)
+        panels = resolve_layout(layout)
         if verbose:
             print(f"Layout parsed: {layout_path}")
             print(
                 f"Page size: {layout.page.width}x{layout.page.height} {layout.page.units}"
             )
-            print(f"Panels: {len(layout.panels)}")
+            print(f"Panels: {len(panels)}")
 
         if fmt == "pdf":
             from .compose_pdf import PDFComposer
@@ -187,11 +190,12 @@ def main():
     if args.check:
         try:
             layout = parse_layout(args.layout)
+            panels = resolve_layout(layout)
             print(f"Layout parsed successfully: {args.layout}")
             print(
                 f"Page size: {layout.page.width}x{layout.page.height} {layout.page.units}"
             )
-            print(f"Panels: {len(layout.panels)}")
+            print(f"Panels: {len(panels)}")
             sys.exit(0)
         except FigQuiltError as e:
             print(f"Error: {e}", file=sys.stderr)

@@ -11,6 +11,7 @@ class PDFComposer:
         self.units = layout.page.units
         self.width_pt = to_pt(layout.page.width, self.units)
         self.height_pt = to_pt(layout.page.height, self.units)
+        self.margin_pt = to_pt(layout.page.margin, self.units)
 
     def compose(self, output_path: Path):
         doc = self.build()
@@ -33,8 +34,11 @@ class PDFComposer:
             if col:
                 page.draw_rect(page.rect, color=col, fill=col)
 
-        # Draw panels
-        for i, panel in enumerate(self.layout.panels):
+        # Get panels (resolves grid layout if needed)
+        from .grid import resolve_layout
+
+        panels = resolve_layout(self.layout)
+        for i, panel in enumerate(panels):
             self._place_panel(doc, page, panel, index=i)
 
         return doc
@@ -63,9 +67,9 @@ class PDFComposer:
     def _place_panel(
         self, doc: fitz.Document, page: fitz.Page, panel: Panel, index: int
     ):
-        # Calculate position and size first
-        x = to_pt(panel.x, self.units)
-        y = to_pt(panel.y, self.units)
+        # Calculate position and size first, offset by page margin
+        x = to_pt(panel.x, self.units) + self.margin_pt
+        y = to_pt(panel.y, self.units) + self.margin_pt
         w = to_pt(panel.width, self.units)
 
         # Determine height from aspect ratio if needed

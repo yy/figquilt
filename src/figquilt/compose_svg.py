@@ -13,6 +13,7 @@ class SVGComposer:
         self.units = layout.page.units
         self.width_pt = to_pt(layout.page.width, self.units)
         self.height_pt = to_pt(layout.page.height, self.units)
+        self.margin_pt = to_pt(layout.page.margin, self.units)
 
     def compose(self, output_path: Path):
         # Create root SVG element
@@ -35,8 +36,11 @@ class SVGComposer:
             bg.set("height", "100%")
             bg.set("fill", self.layout.page.background)
 
-        # Draw panels
-        for i, panel in enumerate(self.layout.panels):
+        # Get panels (resolves grid layout if needed)
+        from .grid import resolve_layout
+
+        panels = resolve_layout(self.layout)
+        for i, panel in enumerate(panels):
             self._place_panel(root, panel, i)
 
         # Write to file
@@ -45,8 +49,9 @@ class SVGComposer:
             tree.write(f, pretty_print=True, xml_declaration=True, encoding="utf-8")
 
     def _place_panel(self, root: etree.Element, panel: Panel, index: int):
-        x = to_pt(panel.x, self.units)
-        y = to_pt(panel.y, self.units)
+        # Offset by page margin
+        x = to_pt(panel.x, self.units) + self.margin_pt
+        y = to_pt(panel.y, self.units) + self.margin_pt
         w = to_pt(panel.width, self.units)
 
         # Determine content sizing

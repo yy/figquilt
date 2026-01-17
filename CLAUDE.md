@@ -46,7 +46,8 @@ uv publish                 # Publish to PyPI
 ### Source Structure (`src/figquilt/`)
 - **cli.py**: Entry point, argument parsing, dispatches to appropriate composer
 - **parser.py**: YAML parsing, validates layout files, resolves file paths
-- **layout.py**: Pydantic models (`Layout`, `Page`, `Panel`, `LabelStyle`)
+- **layout.py**: Pydantic models (`Layout`, `Page`, `Panel`, `LayoutNode`, `LabelStyle`)
+- **grid.py**: Grid layout resolution - converts layout tree to flat list of positioned panels
 - **compose_pdf.py**: PDF backend using PyMuPDF (fitz) - handles PDF/SVG/PNG embedding
 - **compose_svg.py**: SVG backend for vector output
 - **images.py**: Format detection, aspect ratio helpers
@@ -55,9 +56,10 @@ uv publish                 # Publish to PyPI
 
 ### Data Flow
 1. CLI parses args → `parser.parse_layout()` loads YAML and validates with Pydantic
-2. Layout object contains `Page` (dimensions, units, background, default label style) and list of `Panel` objects
-3. Based on output format, either `PDFComposer` or `SVGComposer` is instantiated
-4. Composer iterates panels: loads source file, computes dimensions (respecting aspect ratio), places at coordinates, draws labels
+2. Layout object contains `Page` and either `panels` (legacy explicit coordinates) or `layout` (grid tree)
+3. `grid.resolve_layout()` converts the layout tree to a flat list of `Panel` objects with computed positions
+4. Based on output format, either `PDFComposer` or `SVGComposer` is instantiated
+5. Composer iterates panels: loads source file, computes dimensions (respecting aspect ratio), places at coordinates, draws labels
 
 ### Key Design Decisions
 - Layout coordinates use the units specified in `page.units` (mm, inches, or pt); label offsets are always in mm
@@ -69,6 +71,6 @@ uv publish                 # Publish to PyPI
 ## Layout File Specification
 
 See `docs/spec.md` for the full schema. Key elements:
-- `page`: width, height, units (mm/inches/pt), dpi, background color
-- `panels`: list with id, file, x, y, width, optional height, optional label overrides
-- Future: grid-based layout with `type: row/col/grid`, ratios, gaps (see spec.md)
+- `page`: width, height, units (mm/inches/pt), dpi, background color, margin
+- `panels`: list with id, file, x, y, width, optional height, optional label overrides (legacy mode)
+- `layout`: grid-based layout tree with `type: row/col`, children, ratios, gaps, margin

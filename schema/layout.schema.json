@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/figquilt/figquilt/raw/main/schema/layout.schema.json",
+  "title": "Layout",
+  "description": "Root layout object for figquilt.",
+  "type": "object",
+  "required": ["page", "panels"],
+  "properties": {
+    "page": {
+      "$ref": "#/$defs/Page",
+      "description": "Page dimensions and settings"
+    },
+    "panels": {
+      "description": "List of panels to place",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Panel"
+      }
+    }
+  },
+  "$defs": {
+    "Page": {
+      "title": "Page",
+      "description": "Page dimensions and default settings.",
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": {
+          "type": "number",
+          "description": "Page width (in specified units)"
+        },
+        "height": {
+          "type": "number",
+          "description": "Page height (in specified units)"
+        },
+        "units": {
+          "type": "string",
+          "enum": ["mm", "inches", "pt"],
+          "default": "mm",
+          "description": "Units for dimensions"
+        },
+        "dpi": {
+          "type": "integer",
+          "default": 300,
+          "description": "Resolution for rasterized output"
+        },
+        "background": {
+          "type": ["string", "null"],
+          "default": "white",
+          "description": "Background color (name or hex)"
+        },
+        "margin": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Page margin; panel coordinates are offset by this"
+        },
+        "label": {
+          "$ref": "#/$defs/LabelStyle",
+          "description": "Default label style"
+        }
+      }
+    },
+    "Panel": {
+      "title": "Panel",
+      "description": "A figure panel to place on the page.",
+      "type": "object",
+      "required": ["id", "file", "x", "y", "width"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this panel"
+        },
+        "file": {
+          "type": "string",
+          "description": "Path to source file (PDF, SVG, or PNG)"
+        },
+        "x": {
+          "type": "number",
+          "description": "X position from left edge (in page units)"
+        },
+        "y": {
+          "type": "number",
+          "description": "Y position from top edge (in page units)"
+        },
+        "width": {
+          "type": "number",
+          "description": "Panel width (in page units)"
+        },
+        "height": {
+          "type": ["number", "null"],
+          "default": null,
+          "description": "Panel height; if omitted, computed from aspect ratio"
+        },
+        "fit": {
+          "type": "string",
+          "enum": ["contain", "cover"],
+          "default": "contain",
+          "description": "How to fit the figure: contain (preserve aspect) or cover (fill and clip)"
+        },
+        "label": {
+          "type": ["string", "null"],
+          "default": null,
+          "description": "Override the auto-generated label text"
+        },
+        "label_style": {
+          "oneOf": [
+            { "$ref": "#/$defs/LabelStyle" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "description": "Override default label styling for this panel"
+        }
+      }
+    },
+    "LabelStyle": {
+      "title": "LabelStyle",
+      "description": "Styling options for panel labels.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to show labels"
+        },
+        "auto_sequence": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-generate labels A, B, C..."
+        },
+        "font_family": {
+          "type": "string",
+          "default": "Helvetica",
+          "description": "Font family for labels"
+        },
+        "font_size_pt": {
+          "type": "number",
+          "default": 8.0,
+          "description": "Font size in points"
+        },
+        "offset_x_mm": {
+          "type": "number",
+          "default": 2.0,
+          "description": "Horizontal offset from panel edge (mm)"
+        },
+        "offset_y_mm": {
+          "type": "number",
+          "default": 2.0,
+          "description": "Vertical offset from panel edge (mm)"
+        },
+        "bold": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use bold font"
+        },
+        "uppercase": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use uppercase letters"
+        }
+      }
+    }
+  }
+}

@@ -25,6 +25,7 @@ This document defines the YAML/JSON specification for `figquilt` layouts.
 | `height` | `float` | - | Total page height. |
 | `units` | `string` | `"mm"` | global units (`mm`, `inches`, `pt`). |
 | `background` | `string` | `"white"` | Background color. |
+| `margin` | `float` | `0` | Page margin. Panel coordinates are offset by this value. |
 
 ### LayoutNode (The Grid System)
 

@@ -96,3 +96,100 @@ panels:
 ```
 
 If `height` is omitted, the panel automatically sizes to preserve the source aspect ratio.
+
+### Page Margins
+
+Add consistent margins around your content with the `margin` property on the page:
+
+```yaml
+page:
+  width: 180
+  height: 120
+  margin: 10  # 10mm margin on all sides
+
+panels:
+  - id: A
+    file: "plots/scatter.pdf"
+    width: 70
+    x: 0   # Positioned relative to margin, not page edge
+    y: 0
+```
+
+Panel coordinates are relative to the margin edge. A panel at `x: 0, y: 0` with a 10mm margin will appear at position (10mm, 10mm) on the page.
+
+### Grid Layout
+
+Instead of manually specifying x/y coordinates for each panel, use the grid layout system to define structure with rows and columns:
+
+```yaml
+page:
+  width: 180
+  height: 100
+  units: mm
+
+layout:
+  type: row
+  ratios: [3, 2]  # Left panel is 60%, right is 40%
+  gap: 5
+  children:
+    - id: A
+      file: "plot1.pdf"
+    - id: B
+      file: "plot2.pdf"
+```
+
+#### Container Types
+
+- **`row`**: Arranges children horizontally (left to right)
+- **`col`**: Arranges children vertically (top to bottom)
+
+#### Container Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `ratios` | Equal | Relative sizing of children (e.g., `[3, 2]` = 60%/40%) |
+| `gap` | 0 | Space between children (in page units) |
+| `margin` | 0 | Inner padding of the container |
+
+#### Nested Layouts
+
+Containers can be nested for complex layouts:
+
+```yaml
+layout:
+  type: col
+  ratios: [1, 2]  # Top row 1/3 height, bottom row 2/3
+  children:
+    - id: A
+      file: "header.pdf"
+    - type: row
+      ratios: [1, 1]
+      gap: 5
+      children:
+        - id: B
+          file: "left.pdf"
+        - id: C
+          file: "right.pdf"
+```
+
+This creates:
+- Panel A spanning the full width in the top third
+- Panels B and C side-by-side in the bottom two-thirds
+
+### Editor Autocomplete (JSON Schema)
+
+For autocomplete and validation in your editor, reference the JSON schema in your layout file:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yy/figquilt/main/schema/layout.schema.json
+page:
+  width: 180
+  height: 120
+
+panels:
+  - id: A
+    file: "plots/scatter.pdf"
+    # ... your editor will now provide autocomplete for all fields
+```
+
+This works with [YAML Language Server](https://github.com/redhat-developer/yaml-language-server) in VS Code (via the YAML extension) and other editors.
