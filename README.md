@@ -76,3 +76,23 @@ figquilt --watch figure1.yaml figure1.pdf
 ```
 
 This is useful during layout iteration - edit your YAML or regenerate a panel, and the output updates automatically.
+
+### Fit Modes
+
+When specifying both `width` and `height` for a panel, use `fit` to control how the source image scales:
+
+- **`contain`** (default): Scale to fit within the cell, preserving aspect ratio. May leave empty space (letterbox/pillarbox).
+- **`cover`**: Scale to cover the entire cell, preserving aspect ratio. May crop overflow.
+
+```yaml
+panels:
+  - id: A
+    file: "photo.png"
+    x: 0
+    y: 0
+    width: 80
+    height: 60
+    fit: cover  # Fill the cell, cropping if needed
+```
+
+If `height` is omitted, the panel automatically sizes to preserve the source aspect ratio.
