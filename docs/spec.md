@@ -15,7 +15,10 @@ This document defines the YAML/JSON specification for `figquilt` layouts.
 | Field | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
 | `page` | `Page` | Yes | Defines the canvas properties. |
-| `layout` | `LayoutNode` | Yes | The root layout structure (grid or manual). |
+| `panels` | `List[Panel]` | No* | List of panels with explicit coordinates (legacy mode). |
+| `layout` | `LayoutNode` | No* | The root layout structure for grid-based positioning. |
+
+*Either `panels` or `layout` must be specified, but not both.
 
 ### Page
 
@@ -23,9 +26,40 @@ This document defines the YAML/JSON specification for `figquilt` layouts.
 | :--- | :--- | :--- | :--- |
 | `width` | `float` | - | Total page width. |
 | `height` | `float` | - | Total page height. |
-| `units` | `string` | `"mm"` | global units (`mm`, `inches`, `pt`). |
-| `background` | `string` | `"white"` | Background color. |
+| `units` | `string` | `"mm"` | Global units (`mm`, `inches`, `pt`). |
+| `dpi` | `int` | `300` | Resolution for rasterized output (PNG). |
+| `background` | `string` | `"white"` | Background color (name or hex). |
 | `margin` | `float` | `0` | Page margin. Panel coordinates are offset by this value. |
+| `label` | `LabelStyle` | (see below) | Default label styling for all panels. |
+
+### LabelStyle
+
+| Field | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `enabled` | `bool` | `true` | Whether to show labels. |
+| `auto_sequence` | `bool` | `true` | Auto-generate labels A, B, C... |
+| `font_family` | `string` | `"Helvetica"` | Font family for labels. |
+| `font_size_pt` | `float` | `8.0` | Font size in points. |
+| `offset_x` | `float` | `2.0` | Horizontal offset from panel edge (in page units). |
+| `offset_y` | `float` | `2.0` | Vertical offset from panel edge (in page units). |
+| `bold` | `bool` | `true` | Use bold font. |
+| `uppercase` | `bool` | `true` | Use uppercase letters. |
+
+### Panel (Explicit Coordinates Mode)
+
+When using `panels` instead of `layout`, each panel has explicit coordinates:
+
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `string` | Yes | Unique identifier for this panel. |
+| `file` | `string` | Yes | Path to source file (PDF, SVG, or PNG). |
+| `x` | `float` | Yes | X position from left edge (in page units). |
+| `y` | `float` | Yes | Y position from top edge (in page units). |
+| `width` | `float` | Yes | Panel width (in page units). |
+| `height` | `float` | No | Panel height; if omitted, computed from aspect ratio. |
+| `fit` | `string` | No | `"contain"` (default) or `"cover"`. |
+| `label` | `string` | No | Override the auto-generated label text. |
+| `label_style` | `LabelStyle` | No | Override default label styling for this panel. |
 
 ### LayoutNode (The Grid System)
 
@@ -35,7 +69,7 @@ A `LayoutNode` can be a **Container** (holding other nodes) or a **Leaf** (holdi
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
-| `type` | `string` | `"row"` (horizontal) or `"col"` (vertical) or `"grid"` |
+| `type` | `string` | `"row"` (horizontal) or `"col"` (vertical) |
 | `children` | `List[LayoutNode]` | List of child nodes or panels. |
 | `ratios` | `List[float]` | *Optional*. Relative sizing of children. E.g., `[3, 2]` means 60% / 40%. |
 | `gap` | `float` | Gap between children in defined units. |
@@ -48,16 +82,16 @@ A `LayoutNode` can be a **Container** (holding other nodes) or a **Leaf** (holdi
 | `id` | `string` | Unique identifier (used for labels like A, B, C). |
 | `file` | `string` | Path to the source figure. |
 | `label` | `string` | *Optional*. Override the auto-generated label. |
-| `fit` | `string` | `"contain"` (default), `"cover"`, or `"exact"`. |
+| `label_style` | `LabelStyle` | *Optional*. Override default label styling for this panel. |
+| `fit` | `string` | `"contain"` (default) or `"cover"`. |
 
 ### Sizing Rules
 
 1.  **Implicit Sizing**: A leaf node takes the size of its grid cell.
-    *   The figure is scaled to fit within the cell while preserving aspect ratio (`contain`).
-    *   If `fit: "cover"` is used, it might crop (future feature).
-2.  **Explicit Sizing (Discouraged)**:
-    *   `width`/`height` on a Leaf Node overrides grid sizing.
-    *   **Constraint**: Setting *both* `width` and `height` is invalid unless `force_distortion: true` is set (to prevent accidental stretching).
+    *   `fit: "contain"` (default): Scale to fit within the cell, preserving aspect ratio. May leave empty space.
+    *   `fit: "cover"`: Scale to cover the entire cell, preserving aspect ratio. Overflow is clipped.
+2.  **Explicit Panels Mode**: When using `panels` (legacy mode), each panel specifies explicit `x`, `y`, `width`, and optionally `height`.
+    *   If `height` is omitted, it is computed from the source aspect ratio to preserve proportions.
 
 ## Examples
 
@@ -106,4 +140,30 @@ layout:
           file: "left.pdf"
         - id: C
           file: "right.pdf"
+```
+
+### 3. Explicit Coordinates (Legacy Mode)
+
+For precise control, specify exact positions and sizes for each panel.
+
+```yaml
+page:
+  width: 180
+  height: 120
+  units: mm
+  margin: 10
+
+panels:
+  - id: A
+    file: "plots/scatter.pdf"
+    x: 0
+    y: 0
+    width: 70
+  - id: B
+    file: "diagrams/schematic.svg"
+    x: 80
+    y: 0
+    width: 70
+    height: 50
+    fit: cover
 ```

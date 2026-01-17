@@ -27,9 +27,16 @@ This document outlines the roadmap and progress for the `figquilt` project.
 - [x] Add documentation (API docs + User guide)
 - [x] Finalize CI/CD pipeline (tests, linting)
 - [x] Publish initial version
+- [x] Add watch mode (`--watch`) for automatic rebuilds
+
+## Milestone 5: Grid Layout System (✅ Completed)
+- [x] Implement `row` and `col` container types
+- [x] Support nested layouts with arbitrary depth
+- [x] Add `ratios` for proportional sizing of children
+- [x] Implement `gap` and `margin` for spacing control
+- [x] Add `fit` modes (`contain`, `cover`) for panels
 
 ## Future Milestones
-- [ ] Grid-based layout helpers (auto-compute positions)
 - [ ] Shared legend space
 - [ ] Auto-scaling to fit page
 - [ ] Inkscape / Illustrator anchor export
