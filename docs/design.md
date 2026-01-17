@@ -53,7 +53,7 @@ In all cases, the command is the same:
 
 ### Examples (YAML):
 
-An example with grid layout (using row/col containers):
+An example with grid layout (using `row`/`col` container types):
 
 ```yaml
 page:
