@@ -53,7 +53,7 @@ In all cases, the command is the same:
 
 ### Examples (YAML):
 
-An example with grid layout:
+An example with grid layout (using `row`/`col` container types):
 
 ```yaml
 page:
@@ -62,33 +62,27 @@ page:
   height: 60
   dpi: 300
   background: white
-
-layout:
-  type: grid
-  rows: 1
-  cols: 3
-  margin: 5        # outer margin on all sides (mm)
-  gutter: 3        # space between cells (mm)
-
-label:
-  enabled: true
-  auto_sequence: true
-  font_family: Helvetica
-  font_size_pt: 8
-  style:
+  label:
+    enabled: true
+    auto_sequence: true
+    font_family: Helvetica
+    font_size_pt: 8
     bold: true
     uppercase: true
-  offset:
-    x: 2
-    y: -2
+    offset_x: 2
+    offset_y: 2
 
-panels:
-  - id: A
-    file: "panel_A.pdf"
-  - id: B
-    file: "panel_B.pdf"
-  - id: C
-    file: "panel_C.pdf"
+layout:
+  type: row
+  gap: 3           # space between cells (mm)
+  margin: 5        # outer margin on all sides (mm)
+  children:
+    - id: A
+      file: "panel_A.pdf"
+    - id: B
+      file: "panel_B.pdf"
+    - id: C
+      file: "panel_C.pdf"
 ```
 
 An example with explicit coordinates:
@@ -153,7 +147,7 @@ Basic usage:
 figquilt layout.yml output.pdf
 ```
 
-Options (v0):
+Options:
 
 ```sh
 figquilt [OPTIONS] <layout> <output>
@@ -161,8 +155,9 @@ figquilt [OPTIONS] <layout> <output>
 Options:
   --format {pdf,svg,png}   # override output format inferred from extension
   --check                  # validate layout, report issues, no output
+  --watch                  # watch for changes and rebuild automatically
   --verbose                # extra logging
-  --version
+  --version                # print version and exit
   --help
 ```
 
@@ -251,39 +246,39 @@ PNG output is optional but nice to have (export final preview).
 
 ## 6. Architecture (Python v0)
 
-Module structure (suggested):
+Module structure:
 
 ```sh
 figquilt/
   __init__.py
-  cli.py           # argument parsing, entry point
-  layout.py        # schema, parsing, validation
+  cli.py           # argument parsing, entry point, watch mode
+  parser.py        # YAML parsing, validates layout files, resolves file paths
+  layout.py        # Pydantic models (Layout, Page, Panel, LayoutNode, LabelStyle)
+  grid.py          # Grid layout resolution - converts layout tree to flat list of positioned panels
   units.py         # helpers for mm/pt/px conversions
-  compose_pdf.py   # PDF backend
-  compose_svg.py   # SVG backend
+  compose_pdf.py   # PDF backend using PyMuPDF (fitz)
+  compose_svg.py   # SVG backend using lxml
   images.py        # detection of format, aspect ratio helpers
-  errors.py        # custom exceptions
+  errors.py        # custom exceptions (FigQuiltError, LayoutError, AssetMissingError)
 ```
 
 ### 6.1 Flow
 	1.	CLI parse
 	•	Parse args, load layout YAML.
 	2.	Layout parse + validate
-	•	Use pydantic or similar for schema validation.
-	•	Check for:
-	•	Missing required keys,
-	•	Overlapping panels only if a “no overlap” option is later added (for v0, allow overlap).
-	3.	Prepare page + panels
-	•	Convert mm → points (1 pt = 1/72 inch; 1 inch = 25.4 mm).
-	•	Build internal Page and Panel objects.
+	•	Use Pydantic for schema validation.
+	•	Check for missing required keys and invalid values.
+	3.	Grid resolution (if using `layout`)
+	•	`grid.resolve_layout()` converts the layout tree to a flat list of Panel objects.
+	•	Computes panel positions based on container structure, ratios, gaps, and margins.
 	4.	Determine output backend
 	•	Based on output extension or --format.
-	•	Call compose_pdf or compose_svg.
-	5.	Backend
-	•	Create an empty canvas of given size.
+	•	Instantiate PDFComposer or SVGComposer.
+	5.	Composition
+	•	Create an empty canvas of given size (with background).
 	•	For each panel:
 	•	Load input file.
-	•	Compute scaling factors.
+	•	Compute scaling factors based on fit mode.
 	•	Place at correct coordinates.
 	•	Draw labels.
 	•	Save file.
@@ -291,10 +286,12 @@ figquilt/
 ⸻
 
 ## 7. Conventions and assumptions
-	•	Units in layout are mm everywhere (except font size in pt).
-	•	No automatic panel alignment in v0 (user sets x_mm / y_mm). Alignment helpers can be added later as a separate feature or script.
+	•	Units in layout are specified by `page.units` (mm, inches, or pt); font size is always in points.
+	•	Origin (0,0) is at top-left of the page.
+	•	Panel height is optional; if omitted, computed from source aspect ratio to preserve proportions.
+	•	Labels auto-sequence A, B, C... by default unless overridden per-panel.
 	•	figquilt does not change the internal font sizes and properties of the panel contents; it only scales the panel as a whole.
-	•	All coordinates refer to page space, not to any panel’s internal axes.
+	•	All coordinates refer to page space, not to any panel's internal axes.
 
 ⸻
 
@@ -303,21 +300,24 @@ figquilt/
 These are out-of-scope for v0, but useful to keep in mind when designing the data model.
 
 ### 8.1 Grid-based layout helpers
-	•	Allow a “grid” spec (rows, columns, gutters), auto-compute positions:
+
+Grid-based layout is implemented in v0 using `row` and `col` container types. Example:
 
 ```yaml
-grid:
-  rows: 2
-  cols: 2
-  margin: 10
-  gutter: 4
-panels:
-  - id: A
-    file: "panel_A.pdf"
-    grid_position: [1, 1]
-  - id: B
-    file: "panel_B.pdf"
-    grid_position: [1, 2]
+layout:
+  type: col
+  ratios: [1, 2]
+  children:
+    - id: A
+      file: "header.pdf"
+    - type: row
+      ratios: [1, 1]
+      gap: 5
+      children:
+        - id: B
+          file: "left.pdf"
+        - id: C
+          file: "right.pdf"
 ```
 
 ### 8.2 Shared legend space
