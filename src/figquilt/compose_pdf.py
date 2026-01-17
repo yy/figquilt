@@ -1,15 +1,16 @@
 import fitz
 from pathlib import Path
 from .layout import Layout, Panel
-from .units import mm_to_pt
+from .units import mm_to_pt, to_pt
 from .errors import FigQuiltError
 
 
 class PDFComposer:
     def __init__(self, layout: Layout):
         self.layout = layout
-        self.width_pt = mm_to_pt(layout.page.width)
-        self.height_pt = mm_to_pt(layout.page.height)
+        self.units = layout.page.units
+        self.width_pt = to_pt(layout.page.width, self.units)
+        self.height_pt = to_pt(layout.page.height, self.units)
 
     def compose(self, output_path: Path):
         doc = self.build()
@@ -63,9 +64,9 @@ class PDFComposer:
         self, doc: fitz.Document, page: fitz.Page, panel: Panel, index: int
     ):
         # Calculate position and size first
-        x = mm_to_pt(panel.x)
-        y = mm_to_pt(panel.y)
-        w = mm_to_pt(panel.width)
+        x = to_pt(panel.x, self.units)
+        y = to_pt(panel.y, self.units)
+        w = to_pt(panel.width, self.units)
 
         # Determine height from aspect ratio if needed
         # We need to open the source to get aspect ratio
@@ -89,7 +90,7 @@ class PDFComposer:
             aspect = src_rect.height / src_rect.width
 
             if panel.height is not None:
-                h = mm_to_pt(panel.height)
+                h = to_pt(panel.height, self.units)
             else:
                 h = w * aspect
 

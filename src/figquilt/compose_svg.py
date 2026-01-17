@@ -2,7 +2,7 @@ from pathlib import Path
 import base64
 from lxml import etree
 from .layout import Layout, Panel
-from .units import mm_to_pt
+from .units import mm_to_pt, to_pt
 from .errors import FigQuiltError
 import fitz
 
@@ -10,8 +10,9 @@ import fitz
 class SVGComposer:
     def __init__(self, layout: Layout):
         self.layout = layout
-        self.width_pt = mm_to_pt(layout.page.width)
-        self.height_pt = mm_to_pt(layout.page.height)
+        self.units = layout.page.units
+        self.width_pt = to_pt(layout.page.width, self.units)
+        self.height_pt = to_pt(layout.page.height, self.units)
 
     def compose(self, output_path: Path):
         # Create root SVG element
@@ -20,8 +21,10 @@ class SVGComposer:
             "xlink": "http://www.w3.org/1999/xlink",
         }
         root = etree.Element("svg", nsmap=nsmap)
-        root.set("width", f"{self.layout.page.width}mm")
-        root.set("height", f"{self.layout.page.height}mm")
+        # SVG uses "in" for inches, "pt" for points, "mm" for millimeters
+        svg_unit = "in" if self.units == "inches" else self.units
+        root.set("width", f"{self.layout.page.width}{svg_unit}")
+        root.set("height", f"{self.layout.page.height}{svg_unit}")
         root.set("viewBox", f"0 0 {self.width_pt} {self.height_pt}")
         root.set("version", "1.1")
 
@@ -42,9 +45,9 @@ class SVGComposer:
             tree.write(f, pretty_print=True, xml_declaration=True, encoding="utf-8")
 
     def _place_panel(self, root: etree.Element, panel: Panel, index: int):
-        x = mm_to_pt(panel.x)
-        y = mm_to_pt(panel.y)
-        w = mm_to_pt(panel.width)
+        x = to_pt(panel.x, self.units)
+        y = to_pt(panel.y, self.units)
+        w = to_pt(panel.width, self.units)
 
         # Determine content sizing
         # For simplicity in V0, relying on fitz for aspect ratio of all inputs (robust)
@@ -59,7 +62,7 @@ class SVGComposer:
             aspect = src_rect.height / src_rect.width
 
             if panel.height is not None:
-                h = mm_to_pt(panel.height)
+                h = to_pt(panel.height, self.units)
             else:
                 h = w * aspect
 

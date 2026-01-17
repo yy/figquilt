@@ -44,7 +44,7 @@ figquilt --watch layout.yaml output.pdf       # Watch mode: rebuild on changes
 - **compose_pdf.py**: PDF backend using PyMuPDF (fitz) - handles PDF/SVG/PNG embedding
 - **compose_svg.py**: SVG backend for vector output
 - **images.py**: Format detection, aspect ratio helpers
-- **units.py**: Unit conversion helpers (mm to points)
+- **units.py**: Unit conversion helpers (mm/inches/pt to points)
 - **errors.py**: Custom exceptions (`FigQuiltError`, `LayoutError`, `AssetMissingError`)
 
 ### Data Flow
@@ -54,7 +54,7 @@ figquilt --watch layout.yaml output.pdf       # Watch mode: rebuild on changes
 4. Composer iterates panels: loads source file, computes dimensions (respecting aspect ratio), places at coordinates, draws labels
 
 ### Key Design Decisions
-- All layout coordinates use mm (except font size in pt)
+- Layout coordinates use the units specified in `page.units` (mm, inches, or pt); label offsets are always in mm
 - Origin (0,0) is at top-left of page
 - Panel height is optional; if omitted, computed from source aspect ratio to preserve proportions
 - Labels auto-sequence A, B, C... by default unless overridden per-panel
