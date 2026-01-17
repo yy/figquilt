@@ -1,6 +1,9 @@
-from typing import Optional, List, Tuple, Union
+from typing import Literal, Optional, List
 from pathlib import Path
 from pydantic import BaseModel, Field, field_validator
+
+FitMode = Literal["contain", "cover"]
+
 
 class LabelStyle(BaseModel):
     enabled: bool = True
@@ -12,6 +15,7 @@ class LabelStyle(BaseModel):
     bold: bool = True
     uppercase: bool = True
 
+
 class Panel(BaseModel):
     id: str
     file: Path
@@ -19,6 +23,7 @@ class Panel(BaseModel):
     y: float
     width: float
     height: Optional[float] = None  # If None, compute from aspect ratio
+    fit: FitMode = "contain"
     label: Optional[str] = None
     label_style: Optional[LabelStyle] = None
 
@@ -29,6 +34,7 @@ class Panel(BaseModel):
         # but we could add it if desired. The parser/logic will check it.
         return v
 
+
 class Page(BaseModel):
     width: float
     height: float
@@ -36,6 +42,7 @@ class Page(BaseModel):
     dpi: int = 300
     background: Optional[str] = "white"
     label: LabelStyle = Field(default_factory=LabelStyle)
+
 
 class Layout(BaseModel):
     page: Page

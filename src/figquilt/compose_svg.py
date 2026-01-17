@@ -59,30 +59,50 @@ class SVGComposer:
         try:
             src_page = src_doc[0]
             src_rect = src_page.rect
-            aspect = src_rect.height / src_rect.width
+            src_aspect = src_rect.height / src_rect.width
 
             if panel.height is not None:
                 h = to_pt(panel.height, self.units)
             else:
-                h = w * aspect
+                h = w * src_aspect
+
+            # Calculate content dimensions using fit mode
+            from .units import calculate_fit
+
+            content_w, content_h, offset_x, offset_y = calculate_fit(
+                src_aspect, w, h, panel.fit
+            )
 
             # Group for the panel
             g = etree.SubElement(root, "g")
             g.set("transform", f"translate({x}, {y})")
+
+            # For cover mode, add a clip path to crop the overflow
+            if panel.fit == "cover":
+                clip_id = f"clip-{panel.id}"
+                defs = etree.SubElement(g, "defs")
+                clip_path = etree.SubElement(defs, "clipPath")
+                clip_path.set("id", clip_id)
+                clip_rect = etree.SubElement(clip_path, "rect")
+                clip_rect.set("x", "0")
+                clip_rect.set("y", "0")
+                clip_rect.set("width", str(w))
+                clip_rect.set("height", str(h))
 
             # Insert content
             # Check if SVG
             suffix = panel.file.suffix.lower()
             if suffix == ".svg":
                 # Embed SVG by creating an <image> tag with data URI to avoid DOM conflicts
-                # This is safer than merging trees for V0.
-                # Merging trees requires stripping root, handling viewbox/transform matching.
-                # <image> handles scaling automatically.
                 data_uri = self._get_data_uri(panel.file, "image/svg+xml")
                 img = etree.SubElement(g, "image")
-                img.set("width", str(w))
-                img.set("height", str(h))
+                img.set("x", str(offset_x))
+                img.set("y", str(offset_y))
+                img.set("width", str(content_w))
+                img.set("height", str(content_h))
                 img.set("{http://www.w3.org/1999/xlink}href", data_uri)
+                if panel.fit == "cover":
+                    img.set("clip-path", f"url(#{clip_id})")
             else:
                 # PDF or Raster Image
                 # For PDF, we rasterize to PNG (easiest for SVG compatibility without huge libs)
@@ -112,12 +132,16 @@ class SVGComposer:
                     data_uri = self._get_data_uri(data_path, mime)
 
                 img = etree.SubElement(g, "image")
-                img.set("width", str(w))
-                img.set("height", str(h))
+                img.set("x", str(offset_x))
+                img.set("y", str(offset_y))
+                img.set("width", str(content_w))
+                img.set("height", str(content_h))
                 img.set("{http://www.w3.org/1999/xlink}href", data_uri)
+                if panel.fit == "cover":
+                    img.set("clip-path", f"url(#{clip_id})")
 
-            # Label
-            self._draw_label(g, panel, w, h, index)
+            # Label (positioned relative to content, not cell)
+            self._draw_label(g, panel, content_w, content_h, offset_x, offset_y, index)
         finally:
             src_doc.close()
 
@@ -128,7 +152,14 @@ class SVGComposer:
         return f"data:{mime};base64,{b64}"
 
     def _draw_label(
-        self, parent: etree.Element, panel: Panel, w: float, h: float, index: int
+        self,
+        parent: etree.Element,
+        panel: Panel,
+        content_w: float,
+        content_h: float,
+        offset_x: float,
+        offset_y: float,
+        index: int,
     ):
         style = panel.label_style if panel.label_style else self.layout.page.label
         if not style.enabled:
@@ -142,9 +173,9 @@ class SVGComposer:
         if style.uppercase:
             text_str = text_str.upper()
 
-        # Offset (relative to panel top-left, which is 0,0 inside the group)
-        x = mm_to_pt(style.offset_x_mm)
-        y = mm_to_pt(style.offset_y_mm)
+        # Offset relative to the content position
+        x = offset_x + mm_to_pt(style.offset_x_mm)
+        y = offset_y + mm_to_pt(style.offset_y_mm)
 
         # Create text element
         txt = etree.SubElement(parent, "text")

@@ -23,3 +23,48 @@ def to_pt(value: float, units: str) -> float:
         return value
     else:
         raise ValueError(f"Unknown unit: {units}")
+
+
+def calculate_fit(
+    src_aspect: float, cell_w: float, cell_h: float, fit_mode: str
+) -> tuple[float, float, float, float]:
+    """
+    Calculate content dimensions and offset based on fit mode.
+
+    Args:
+        src_aspect: Source aspect ratio (height / width)
+        cell_w: Cell width in points
+        cell_h: Cell height in points
+        fit_mode: "contain" or "cover"
+
+    Returns:
+        Tuple of (content_w, content_h, offset_x, offset_y)
+    """
+    cell_aspect = cell_h / cell_w
+
+    if fit_mode == "cover":
+        # Scale to cover entire cell (may crop)
+        if src_aspect > cell_aspect:
+            # Source is taller: scale by width, crop top/bottom
+            content_w = cell_w
+            content_h = cell_w * src_aspect
+        else:
+            # Source is wider: scale by height, crop left/right
+            content_h = cell_h
+            content_w = cell_h / src_aspect
+    else:  # contain (default)
+        # Scale to fit within cell, preserving aspect ratio
+        if src_aspect > cell_aspect:
+            # Source is taller: fit by height
+            content_h = cell_h
+            content_w = cell_h / src_aspect
+        else:
+            # Source is wider: fit by width
+            content_w = cell_w
+            content_h = cell_w * src_aspect
+
+    # Center in cell
+    offset_x = (cell_w - content_w) / 2
+    offset_y = (cell_h - content_h) / 2
+
+    return content_w, content_h, offset_x, offset_y

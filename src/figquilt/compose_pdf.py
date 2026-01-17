@@ -87,14 +87,27 @@ class PDFComposer:
                 src_page = src_doc[0]
                 src_rect = src_page.rect
 
-            aspect = src_rect.height / src_rect.width
+            src_aspect = src_rect.height / src_rect.width
 
+            # Calculate cell height
             if panel.height is not None:
                 h = to_pt(panel.height, self.units)
             else:
-                h = w * aspect
+                # No height specified: use source aspect ratio
+                h = w * src_aspect
 
-            rect = fitz.Rect(x, y, x + w, y + h)
+            # Calculate content rect using fit mode
+            from .units import calculate_fit
+
+            content_w, content_h, offset_x, offset_y = calculate_fit(
+                src_aspect, w, h, panel.fit
+            )
+            rect = fitz.Rect(
+                x + offset_x,
+                y + offset_y,
+                x + offset_x + content_w,
+                y + offset_y + content_h,
+            )
 
             if src_doc.is_pdf:
                 page.show_pdf_page(rect, src_doc, 0)
