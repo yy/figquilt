@@ -79,7 +79,7 @@ A `LayoutNode` can be a **Container** (holding other nodes) or a **Leaf** (holdi
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
-| `id` | `string` | Unique identifier (used for labels like A, B, C). |
+| `id` | `string` | Unique identifier used to reference this panel. Labels like A, B, C are auto-generated based on layout order or explicitly set via `label`. |
 | `file` | `string` | Path to the source figure. |
 | `label` | `string` | *Optional*. Override the auto-generated label. |
 | `label_style` | `LabelStyle` | *Optional*. Override default label styling for this panel. |
