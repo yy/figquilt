@@ -58,7 +58,7 @@ When using `panels` instead of `layout`, each panel has explicit coordinates:
 | `width` | `float` | Yes | Panel width (in page units). |
 | `height` | `float` | No | Panel height; if omitted, computed from aspect ratio. |
 | `fit` | `string` | No | `"contain"` (default) or `"cover"`. |
-| `label` | `string` | No | Override the auto-generated label text. |
+| `label` | `string` | No | Custom label text for this panel (used instead of any automatically generated label). |
 | `label_style` | `LabelStyle` | No | Override default label styling for this panel. |
 
 ### LayoutNode (The Grid System)
