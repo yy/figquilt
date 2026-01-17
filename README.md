@@ -1,8 +1,15 @@
 # figquilt
 
-**Figure quilter**: A CLI tool to compositing multiple figures (PDF, SVG, PNG) into a publication-ready figure layout.
+**Figure quilter**: A declarative CLI tool for compositing multiple figures (PDF, SVG, PNG) into publication-ready layouts.
 
-`figquilt` takes a simple layout file (YAML) describing panels and their positions, composed of various inputs (plots from R/Python, diagrams, photos), and stitches them into a single output file (PDF, SVG) with precise dimension control and automatic labeling.
+`figquilt` takes a simple layout file (YAML) describing panels and their structure, composed of various inputs (plots from R/Python, diagrams, photos), and stitches them into a single output file (PDF, SVG) with automatic labeling and precise dimension control.
+
+## Philosophy
+
+- **Declarative over imperative**: Describe *what* your figure should look like, not *how* to construct it. Layouts are data, not scripts.
+- **Structural composition first**: Prefer high-level layout (rows, columns, ratios) over manual coordinate placement. Let the tool handle positioning.
+- **Fine control when needed**: Override with explicit coordinates and dimensions when precision matters.
+- **Automation-friendly**: Designed to fit into reproducible workflows (Snakemake, Make, CI pipelines). No GUI, no manual steps.
 
 ## Features
 

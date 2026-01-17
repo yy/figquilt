@@ -4,7 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-figquilt is a CLI tool that composites multiple figures (PDF, SVG, PNG) into publication-ready figure layouts. It takes a YAML layout file specifying panel positions and produces a single output file (PDF, SVG, or PNG) with precise dimension control and automatic subfigure labeling.
+figquilt is a declarative CLI tool that composites multiple figures (PDF, SVG, PNG) into publication-ready figure layouts. It takes a YAML layout file specifying panel structure and produces a single output file (PDF, SVG, or PNG) with automatic subfigure labeling.
+
+## Design Philosophy
+
+- **Declarative over imperative**: Layouts are data (YAML), not scripts. Users describe what the figure should look like.
+- **Structural composition first**: Prefer high-level layout (rows, columns, ratios) over manual x/y coordinates. The tool handles positioning.
+- **Fine control when needed**: Allow explicit coordinates and dimensions for cases requiring precision.
+- **Automation-friendly**: No GUI, designed for reproducible workflows (Snakemake, Make, CI).
 
 ## Commands
 
