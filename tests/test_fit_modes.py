@@ -159,3 +159,125 @@ def test_fit_invalid_value_raises_error(tmp_path, wide_pdf):
 
     with pytest.raises(LayoutError):
         parse_layout(layout_file)
+
+
+# Alignment tests
+
+
+def test_calculate_fit_align_top_left():
+    """Test top-left alignment."""
+    from figquilt.units import calculate_fit
+
+    # Wide image (2:1) in square cell: will be 100x50, leaving 50pt vertical space
+    _, _, offset_x, offset_y = calculate_fit(0.5, 100, 100, "contain", "top-left")
+    assert offset_x == 0
+    assert offset_y == 0
+
+
+def test_calculate_fit_align_top_center():
+    """Test top-center alignment (default horizontal centering, top vertical)."""
+    from figquilt.units import calculate_fit
+
+    # Wide image (2:1) in square cell: will be 100x50
+    _, _, offset_x, offset_y = calculate_fit(0.5, 100, 100, "contain", "top")
+    assert offset_x == 0  # full width, no horizontal offset
+    assert offset_y == 0
+
+
+def test_calculate_fit_align_bottom():
+    """Test bottom alignment."""
+    from figquilt.units import calculate_fit
+
+    # Wide image (2:1) in square cell: will be 100x50, leaving 50pt vertical space
+    _, _, offset_x, offset_y = calculate_fit(0.5, 100, 100, "contain", "bottom")
+    assert offset_x == 0  # full width
+    assert offset_y == 50  # content at bottom
+
+
+def test_calculate_fit_align_bottom_right():
+    """Test bottom-right alignment."""
+    from figquilt.units import calculate_fit
+
+    # Tall image (1:2) in square cell: will be 50x100, leaving 50pt horizontal space
+    _, _, offset_x, offset_y = calculate_fit(2.0, 100, 100, "contain", "bottom-right")
+    assert offset_x == 50
+    assert offset_y == 0  # full height
+
+
+def test_calculate_fit_align_left():
+    """Test left alignment."""
+    from figquilt.units import calculate_fit
+
+    # Tall image (1:2) in square cell: will be 50x100, leaving 50pt horizontal space
+    _, _, offset_x, offset_y = calculate_fit(2.0, 100, 100, "contain", "left")
+    assert offset_x == 0
+    assert offset_y == 0  # full height
+
+
+def test_calculate_fit_align_right():
+    """Test right alignment."""
+    from figquilt.units import calculate_fit
+
+    # Tall image (1:2) in square cell: will be 50x100, leaving 50pt horizontal space
+    _, _, offset_x, offset_y = calculate_fit(2.0, 100, 100, "contain", "right")
+    assert offset_x == 50
+    assert offset_y == 0  # full height
+
+
+def test_calculate_fit_default_align_is_center():
+    """Test that default alignment is center."""
+    from figquilt.units import calculate_fit
+
+    # Wide image (2:1) in square cell: will be 100x50, centered vertically
+    _, _, offset_x, offset_y = calculate_fit(0.5, 100, 100, "contain")
+    assert offset_x == 0
+    assert offset_y == 25  # (100-50)/2
+
+
+def test_align_in_panel_yaml(tmp_path, wide_pdf):
+    """Test that align can be specified in panel YAML."""
+    layout_data = {
+        "page": {"width": 100, "height": 100, "units": "pt"},
+        "panels": [
+            {
+                "id": "A",
+                "file": str(wide_pdf),
+                "x": 0,
+                "y": 0,
+                "width": 100,
+                "height": 100,
+                "fit": "contain",
+                "align": "top",
+            }
+        ],
+    }
+    layout_file = tmp_path / "layout.yaml"
+    with open(layout_file, "w") as f:
+        yaml.dump(layout_data, f)
+
+    layout = parse_layout(layout_file)
+    assert layout.panels[0].align == "top"
+
+
+def test_align_in_grid_layout_yaml(tmp_path, wide_pdf):
+    """Test that align can be specified in grid layout YAML."""
+    layout_data = {
+        "page": {"width": 100, "height": 100, "units": "pt"},
+        "layout": {
+            "type": "row",
+            "children": [
+                {
+                    "id": "A",
+                    "file": str(wide_pdf),
+                    "fit": "contain",
+                    "align": "bottom-left",
+                }
+            ],
+        },
+    }
+    layout_file = tmp_path / "layout.yaml"
+    with open(layout_file, "w") as f:
+        yaml.dump(layout_data, f)
+
+    layout = parse_layout(layout_file)
+    assert layout.layout.children[0].align == "bottom-left"

@@ -1,0 +1,25 @@
+# Nested grid layout: header row on top, two columns below
+page:
+  width: 180
+  height: 140
+  units: mm
+  margin: 5
+
+layout:
+  type: col
+  ratios: [1, 2]
+  gap: 5
+  children:
+    # Top row: full-width header
+    - id: header
+      file: "assets/B_wide.pdf"
+
+    # Bottom row: two equal columns
+    - type: row
+      ratios: [1, 1]
+      gap: 5
+      children:
+        - id: left
+          file: "assets/A_square.pdf"
+        - id: right
+          file: "assets/C_tall.png"

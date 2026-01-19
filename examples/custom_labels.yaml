@@ -1,0 +1,23 @@
+# Custom label styling: roman numerals with larger font
+page:
+  width: 150
+  height: 80
+  units: mm
+  label:
+    font_size_pt: 14
+    bold: true
+    uppercase: false
+
+layout:
+  type: row
+  gap: 10
+  children:
+    - id: panel1
+      file: "assets/A_square.pdf"
+      label: "i"
+    - id: panel2
+      file: "assets/B_wide.pdf"
+      label: "ii"
+    - id: panel3
+      file: "assets/D_icon.svg"
+      label: "iii"

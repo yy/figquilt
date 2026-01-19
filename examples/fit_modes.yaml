@@ -1,0 +1,19 @@
+# Fit modes: contain vs cover
+# 'contain' (default) fits entire image within cell, may leave empty space
+# 'cover' fills entire cell, may crop image
+page:
+  width: 180
+  height: 80
+  units: mm
+  background: "#e8e8e8"
+
+layout:
+  type: row
+  gap: 5
+  children:
+    - id: contain
+      file: "assets/B_wide.pdf"
+      fit: contain
+    - id: cover
+      file: "assets/B_wide.pdf"
+      fit: cover

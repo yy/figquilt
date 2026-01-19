@@ -4,6 +4,17 @@ from pathlib import Path
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 FitMode = Literal["contain", "cover"]
+Alignment = Literal[
+    "center",
+    "top",
+    "bottom",
+    "left",
+    "right",
+    "top-left",
+    "top-right",
+    "bottom-left",
+    "bottom-right",
+]
 
 
 class LabelStyle(BaseModel):
@@ -37,6 +48,10 @@ class Panel(BaseModel):
     fit: FitMode = Field(
         "contain",
         description="How to fit the figure: contain (preserve aspect) or cover (fill and clip)",
+    )
+    align: Alignment = Field(
+        "center",
+        description="How to align content within cell when using contain fit mode",
     )
     label: Optional[str] = Field(
         None, description="Override the auto-generated label text"
@@ -76,6 +91,9 @@ class LayoutNode(BaseModel):
         None, description="Path to source file (PDF, SVG, or PNG)"
     )
     fit: FitMode = Field("contain", description="How to fit the figure in its cell")
+    align: Alignment = Field(
+        "center", description="How to align content within cell when using contain fit"
+    )
     label: Optional[str] = Field(
         None, description="Override the auto-generated label text"
     )

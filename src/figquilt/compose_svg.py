@@ -71,11 +71,11 @@ class SVGComposer:
             else:
                 h = w * src_aspect
 
-            # Calculate content dimensions using fit mode
+            # Calculate content dimensions using fit mode and alignment
             from .units import calculate_fit
 
             content_w, content_h, offset_x, offset_y = calculate_fit(
-                src_aspect, w, h, panel.fit
+                src_aspect, w, h, panel.fit, panel.align
             )
 
             # Group for the panel

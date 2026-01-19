@@ -4,9 +4,9 @@ This document defines the YAML/JSON specification for `figquilt` layouts.
 
 ## Core Philosophy
 
-1.  **Aspect Ratio Preservation**: Users should rarely set both width and height. Figures should scale naturally to fit their container.
-2.  **Grid-First Layout**: Layouts should be defined by structure (rows/columns/ratios) rather than manual coordinate placement.
-3.  **Reproducibility**: The layout file completely defines the output geometry.
+1. **Aspect Ratio Preservation**: Users should rarely set both width and height. Figures should scale naturally to fit their container.
+2. **Grid-First Layout**: Layouts should be defined by structure (rows/columns/ratios) rather than manual coordinate placement.
+3. **Reproducibility**: The layout file completely defines the output geometry.
 
 ## Schema Structure
 
@@ -15,22 +15,22 @@ This document defines the YAML/JSON specification for `figquilt` layouts.
 | Field | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
 | `page` | `Page` | Yes | Defines the canvas properties. |
-| `panels` | `List[Panel]` | No* | List of panels with explicit coordinates (legacy mode). |
-| `layout` | `LayoutNode` | No* | The root layout structure for grid-based positioning. |
+| `layout` | `LayoutNode` | One of | The root layout structure (grid-based, recommended). |
+| `panels` | `List[Panel]` | One of | List of panels with explicit coordinates (legacy mode). |
 
-*Either `panels` or `layout` must be specified, but not both.
+You must specify either `layout` (recommended) or `panels`, but not both.
 
 ### Page
 
 | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `width` | `float` | - | Total page width. |
-| `height` | `float` | - | Total page height. |
+| `width` | `float` | Required | Total page width. |
+| `height` | `float` | Required | Total page height. |
 | `units` | `string` | `"mm"` | Global units (`mm`, `inches`, `pt`). |
 | `dpi` | `int` | `300` | Resolution for rasterized output (PNG). |
 | `background` | `string` | `"white"` | Background color (name or hex). |
 | `margin` | `float` | `0` | Page margin. Panel coordinates are offset by this value. |
-| `label` | `LabelStyle` | (see below) | Default label styling for all panels. |
+| `label` | `LabelStyle` | See below | Default label styling for all panels. |
 
 ### LabelStyle
 
@@ -45,59 +45,70 @@ This document defines the YAML/JSON specification for `figquilt` layouts.
 | `bold` | `bool` | `true` | Use bold font. |
 | `uppercase` | `bool` | `true` | Use uppercase letters. |
 
-### Panel (Explicit Coordinates Mode)
-
-When using `panels` instead of `layout`, each panel has explicit coordinates:
-
-| Field | Type | Required | Description |
-| :--- | :--- | :--- | :--- |
-| `id` | `string` | Yes | Unique identifier for this panel. |
-| `file` | `string` | Yes | Path to source file (PDF, SVG, or PNG). |
-| `x` | `float` | Yes | X position from left edge (in page units). |
-| `y` | `float` | Yes | Y position from top edge (in page units). |
-| `width` | `float` | Yes | Panel width (in page units). |
-| `height` | `float` | No | Panel height; if omitted, computed from aspect ratio. |
-| `fit` | `string` | No | `"contain"` (default) or `"cover"`. |
-| `label` | `string` | No | Custom label text for this panel (used instead of any automatically generated label). |
-| `label_style` | `LabelStyle` | No | Override default label styling for this panel. |
-
-### LayoutNode (The Grid System)
+### LayoutNode (Grid System)
 
 A `LayoutNode` can be a **Container** (holding other nodes) or a **Leaf** (holding a panel/figure).
 
-#### Container Node (Grid/Flex)
+#### Container Node
 
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `type` | `string` | `"row"` (horizontal) or `"col"` (vertical) |
-| `children` | `List[LayoutNode]` | List of child nodes or panels. |
-| `ratios` | `List[float]` | *Optional*. Relative sizing of children. E.g., `[3, 2]` means 60% / 40%. |
-| `gap` | `float` | Gap between children in defined units. |
-| `margin` | `float` | Inner margin of this container. |
+| Field | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `type` | `string` | Required | `"row"` (horizontal) or `"col"` (vertical). |
+| `children` | `List[LayoutNode]` | Required | List of child nodes or panels. |
+| `ratios` | `List[float]` | Equal | Relative sizing of children. E.g., `[3, 2]` means 60% / 40%. |
+| `gap` | `float` | `0` | Gap between children (in page units). |
+| `margin` | `float` | `0` | Inner margin of this container. |
 
 #### Leaf Node (Panel)
 
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `id` | `string` | Unique identifier used to reference this panel. Labels like A, B, C are auto-generated based on layout order or explicitly set via `label`. |
-| `file` | `string` | Path to the source figure. |
-| `label` | `string` | *Optional*. Override the auto-generated label. |
-| `label_style` | `LabelStyle` | *Optional*. Override default label styling for this panel. |
-| `fit` | `string` | `"contain"` (default) or `"cover"`. |
+| Field | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `string` | Required | Unique identifier (used for labels like A, B, C). |
+| `file` | `string` | Required | Path to the source figure. |
+| `label` | `string` | Auto | Override the auto-generated label. |
+| `label_style` | `LabelStyle` | Inherited | Override label styling for this panel. |
+| `fit` | `string` | `"contain"` | `"contain"` or `"cover"`. |
+| `align` | `string` | `"center"` | Content alignment within cell (see Alignment). |
 
-### Sizing Rules
+### Panel (Explicit Coordinates Mode)
 
-1.  **Implicit Sizing**: A leaf node takes the size of its grid cell.
-    *   `fit: "contain"` (default): Scale to fit within the cell, preserving aspect ratio. May leave empty space.
-    *   `fit: "cover"`: Scale to cover the entire cell, preserving aspect ratio. Overflow is clipped.
-2.  **Explicit Sizing in Grid Layouts (Discouraged)**: When using `layout`-based grids, avoid setting explicit `width` or `height` on leaf panels. Let the grid define panel sizes for predictable, responsive layouts.
-    *   If explicit `width`/`height` are provided on a leaf within a grid, they override the cell-derived size and may break intended ratios or alignments.
-3.  **Explicit Panels Mode**: When using `panels` (legacy mode), each panel specifies explicit `x`, `y`, `width`, and optionally `height`.
-    *   If `height` is omitted, it is computed from the source aspect ratio to preserve proportions.
+When using `panels` instead of `layout`, each panel specifies explicit coordinates:
+
+| Field | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `string` | Required | Unique identifier. |
+| `file` | `string` | Required | Path to the source figure. |
+| `x` | `float` | Required | X position from left edge (in page units). |
+| `y` | `float` | Required | Y position from top edge (in page units). |
+| `width` | `float` | Required | Panel width (in page units). |
+| `height` | `float` | Auto | Panel height; if omitted, computed from aspect ratio. |
+| `fit` | `string` | `"contain"` | `"contain"` or `"cover"`. |
+| `align` | `string` | `"center"` | Content alignment within cell (see Alignment). |
+| `label` | `string` | Auto | Override the auto-generated label. |
+| `label_style` | `LabelStyle` | Inherited | Override label styling for this panel. |
+
+### Fit Modes
+
+- **`contain`** (default): Scale to fit within the cell, preserving aspect ratio. May leave empty space.
+- **`cover`**: Scale to cover the entire cell, preserving aspect ratio. May clip overflow.
+
+### Alignment
+
+Controls where content is positioned within its cell when using `contain` fit mode (which may leave empty space):
+
+- **`center`** (default): Center both horizontally and vertically.
+- **`top`**: Top edge, horizontally centered.
+- **`bottom`**: Bottom edge, horizontally centered.
+- **`left`**: Left edge, vertically centered.
+- **`right`**: Right edge, vertically centered.
+- **`top-left`**: Top-left corner.
+- **`top-right`**: Top-right corner.
+- **`bottom-left`**: Bottom-left corner.
+- **`bottom-right`**: Bottom-right corner.
 
 ## Examples
 
-### 1. Simple 3:2 Split
+### 1. Simple 3:2 Split (Grid Layout)
 
 Divides the page width into two columns. The first takes 3 parts, the second takes 2 parts.
 
@@ -109,7 +120,7 @@ page:
 
 layout:
   type: row
-  ratios: [3, 2]  # Left is 60%, Right is 40%
+  ratios: [3, 2]
   gap: 5
   children:
     - id: A
@@ -130,7 +141,7 @@ page:
 
 layout:
   type: col
-  ratios: [1, 2] # Top row is 1/3 height, Bottom row is 2/3 height
+  ratios: [1, 2]
   children:
     - id: A
       file: "header.pdf"
@@ -168,4 +179,26 @@ panels:
     width: 70
     height: 50
     fit: cover
+```
+
+### 4. Custom Labels
+
+```yaml
+page:
+  width: 180
+  height: 100
+  units: mm
+  label:
+    font_size_pt: 12
+    bold: true
+
+layout:
+  type: row
+  children:
+    - id: A
+      file: "plot1.pdf"
+      label: "i"
+    - id: B
+      file: "plot2.pdf"
+      label: "ii"
 ```

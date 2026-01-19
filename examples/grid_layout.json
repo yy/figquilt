@@ -1,0 +1,25 @@
+{
+  "page": {
+    "width": 180,
+    "height": 120,
+    "units": "mm",
+    "margin": 5
+  },
+  "layout": {
+    "type": "row",
+    "ratios": [2, 1],
+    "gap": 5,
+    "children": [
+      {
+        "type": "col",
+        "ratios": [1, 1],
+        "gap": 5,
+        "children": [
+          {"id": "A", "file": "assets/A_square.pdf"},
+          {"id": "B", "file": "assets/B_wide.pdf"}
+        ]
+      },
+      {"id": "C", "file": "assets/C_tall.png"}
+    ]
+  }
+}

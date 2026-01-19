@@ -100,11 +100,11 @@ class PDFComposer:
                 # No height specified: use source aspect ratio
                 h = w * src_aspect
 
-            # Calculate content rect using fit mode
+            # Calculate content rect using fit mode and alignment
             from .units import calculate_fit
 
             content_w, content_h, offset_x, offset_y = calculate_fit(
-                src_aspect, w, h, panel.fit
+                src_aspect, w, h, panel.fit, panel.align
             )
             rect = fitz.Rect(
                 x + offset_x,

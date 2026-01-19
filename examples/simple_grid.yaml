@@ -1,0 +1,15 @@
+# Simple grid layout: two panels side by side with 3:2 ratio
+page:
+  width: 150
+  height: 80
+  units: mm
+
+layout:
+  type: row
+  ratios: [3, 2]
+  gap: 5
+  children:
+    - id: A
+      file: "assets/A_square.pdf"
+    - id: B
+      file: "assets/B_wide.pdf"

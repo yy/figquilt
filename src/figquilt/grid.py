@@ -58,6 +58,7 @@ def _resolve_node(
                 width=width,
                 height=height,
                 fit=node.fit,
+                align=node.align,
                 label=node.label,
                 label_style=node.label_style,
             )
