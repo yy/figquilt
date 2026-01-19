@@ -1,6 +1,6 @@
 [project]
 name = "figquilt"
-version = "0.1.6"
+version = "0.1.7"
 description = "figquilt is a small, language-agnostic CLI tool that composes multiple figures (PDF/SVG/PNG) into a single publication-ready figure, based on a simple layout file (YAML/JSON). The key function is creating a PDF by composing multiple PDFs and adding subfigure labels and minimal annotations."
 readme = "README.md"
 authors = [
