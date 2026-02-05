@@ -264,11 +264,11 @@ class TestColorParsing:
         composer = PDFComposer(layout)
 
         # Test basic hex colors
-        assert composer._parse_color("#ffffff") == pytest.approx((1.0, 1.0, 1.0))
-        assert composer._parse_color("#000000") == pytest.approx((0.0, 0.0, 0.0))
-        assert composer._parse_color("#ff0000") == pytest.approx((1.0, 0.0, 0.0))
-        assert composer._parse_color("#00ff00") == pytest.approx((0.0, 1.0, 0.0))
-        assert composer._parse_color("#0000ff") == pytest.approx((0.0, 0.0, 1.0))
+        assert composer.parse_color("#ffffff") == pytest.approx((1.0, 1.0, 1.0))
+        assert composer.parse_color("#000000") == pytest.approx((0.0, 0.0, 0.0))
+        assert composer.parse_color("#ff0000") == pytest.approx((1.0, 0.0, 0.0))
+        assert composer.parse_color("#00ff00") == pytest.approx((0.0, 1.0, 0.0))
+        assert composer.parse_color("#0000ff") == pytest.approx((0.0, 0.0, 1.0))
 
     def test_parse_named_color(self):
         """Should parse named colors via PIL."""
@@ -279,9 +279,9 @@ class TestColorParsing:
         composer = PDFComposer(layout)
 
         # Test named colors (via PIL ImageColor)
-        assert composer._parse_color("white") == pytest.approx((1.0, 1.0, 1.0))
-        assert composer._parse_color("black") == pytest.approx((0.0, 0.0, 0.0))
-        assert composer._parse_color("red") == pytest.approx((1.0, 0.0, 0.0))
+        assert composer.parse_color("white") == pytest.approx((1.0, 1.0, 1.0))
+        assert composer.parse_color("black") == pytest.approx((0.0, 0.0, 0.0))
+        assert composer.parse_color("red") == pytest.approx((1.0, 0.0, 0.0))
 
     def test_parse_invalid_color_returns_none(self):
         """Should return None for invalid color strings."""
@@ -292,5 +292,5 @@ class TestColorParsing:
         composer = PDFComposer(layout)
 
         # Invalid colors should return None
-        assert composer._parse_color("notacolor") is None
-        assert composer._parse_color("#gg0000") is None
+        assert composer.parse_color("notacolor") is None
+        assert composer.parse_color("#gg0000") is None

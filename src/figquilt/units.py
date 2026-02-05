@@ -20,6 +20,21 @@ def to_pt(value: float, units: str) -> float:
         raise ValueError(f"Unknown unit: {units}")
 
 
+# Alignment offset factors: (horizontal_factor, vertical_factor)
+# Multiply by (space_x, space_y) to get offset
+_ALIGNMENT_OFFSETS: dict[str, tuple[float, float]] = {
+    "center": (0.5, 0.5),
+    "top": (0.5, 0.0),
+    "bottom": (0.5, 1.0),
+    "left": (0.0, 0.5),
+    "right": (1.0, 0.5),
+    "top-left": (0.0, 0.0),
+    "top-right": (1.0, 0.0),
+    "bottom-left": (0.0, 1.0),
+    "bottom-right": (1.0, 1.0),
+}
+
+
 def calculate_fit(
     src_aspect: float,
     cell_w: float,
@@ -64,41 +79,11 @@ def calculate_fit(
             content_w = cell_w
             content_h = cell_w * src_aspect
 
-    # Calculate offsets based on alignment
+    # Calculate offsets based on alignment using lookup table
     space_x = cell_w - content_w
     space_y = cell_h - content_h
-
-    # Parse alignment
-    if align == "center":
-        offset_x = space_x / 2
-        offset_y = space_y / 2
-    elif align == "top":
-        offset_x = space_x / 2
-        offset_y = 0
-    elif align == "bottom":
-        offset_x = space_x / 2
-        offset_y = space_y
-    elif align == "left":
-        offset_x = 0
-        offset_y = space_y / 2
-    elif align == "right":
-        offset_x = space_x
-        offset_y = space_y / 2
-    elif align == "top-left":
-        offset_x = 0
-        offset_y = 0
-    elif align == "top-right":
-        offset_x = space_x
-        offset_y = 0
-    elif align == "bottom-left":
-        offset_x = 0
-        offset_y = space_y
-    elif align == "bottom-right":
-        offset_x = space_x
-        offset_y = space_y
-    else:
-        # Unknown alignment, default to center
-        offset_x = space_x / 2
-        offset_y = space_y / 2
+    h_factor, v_factor = _ALIGNMENT_OFFSETS.get(align, (0.5, 0.5))
+    offset_x = space_x * h_factor
+    offset_y = space_y * v_factor
 
     return content_w, content_h, offset_x, offset_y

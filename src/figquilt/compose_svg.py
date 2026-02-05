@@ -1,200 +1,166 @@
-from pathlib import Path
+"""SVG composer using lxml."""
+
 import base64
+from pathlib import Path
+
 from lxml import etree
+
+from .base_composer import BaseComposer
 from .layout import Layout, Panel
 from .units import to_pt
-from .errors import FigQuiltError
-import fitz
 
 
-class SVGComposer:
+class SVGComposer(BaseComposer):
     def __init__(self, layout: Layout):
-        self.layout = layout
-        self.units = layout.page.units
-        self.width_pt = to_pt(layout.page.width, self.units)
-        self.height_pt = to_pt(layout.page.height, self.units)
-        self.margin_pt = to_pt(layout.page.margin, self.units)
+        super().__init__(layout)
 
-    def compose(self, output_path: Path):
-        # Create root SVG element
+    def compose(self, output_path: Path) -> None:
         nsmap = {
             None: "http://www.w3.org/2000/svg",
             "xlink": "http://www.w3.org/1999/xlink",
         }
         root = etree.Element("svg", nsmap=nsmap)
-        # SVG uses "in" for inches, "pt" for points, "mm" for millimeters
+
+        # Set SVG dimensions
         svg_unit = "in" if self.units == "inches" else self.units
         root.set("width", f"{self.layout.page.width}{svg_unit}")
         root.set("height", f"{self.layout.page.height}{svg_unit}")
         root.set("viewBox", f"0 0 {self.width_pt} {self.height_pt}")
         root.set("version", "1.1")
 
-        if self.layout.page.background:
-            # Draw background
-            bg = etree.SubElement(root, "rect")
-            bg.set("width", "100%")
-            bg.set("height", "100%")
-            bg.set("fill", self.layout.page.background)
+        self._draw_background(root)
 
-        # Get panels (resolves grid layout if needed)
-        from .grid import resolve_layout
-
-        panels = resolve_layout(self.layout)
+        panels = self.get_panels()
         for i, panel in enumerate(panels):
             self._place_panel(root, panel, i)
 
-        # Write to file
         tree = etree.ElementTree(root)
         with open(output_path, "wb") as f:
             tree.write(f, pretty_print=True, xml_declaration=True, encoding="utf-8")
 
-    def _place_panel(self, root: etree.Element, panel: Panel, index: int):
-        # Offset by page margin
-        x = to_pt(panel.x, self.units) + self.margin_pt
-        y = to_pt(panel.y, self.units) + self.margin_pt
-        w = to_pt(panel.width, self.units)
+    def _draw_background(self, root: etree.Element) -> None:
+        """Draw background color if specified."""
+        if not self.layout.page.background:
+            return
 
-        # Determine content sizing
-        # For simplicity in V0, relying on fitz for aspect ratio of all inputs (robust)
+        bg = etree.SubElement(root, "rect")
+        bg.set("width", "100%")
+        bg.set("height", "100%")
+        bg.set("fill", self.layout.page.background)
+
+    def _place_panel(self, root: etree.Element, panel: Panel, index: int) -> None:
+        """Place a panel on the SVG."""
+        source_info = self.open_source(panel)
+
         try:
-            src_doc = fitz.open(panel.file)
-        except Exception as e:
-            raise FigQuiltError(f"Failed to inspect panel {panel.file}: {e}")
+            content_rect = self.calculate_content_rect(panel, source_info.aspect_ratio)
 
-        try:
-            src_page = src_doc[0]
-            src_rect = src_page.rect
-            src_aspect = src_rect.height / src_rect.width
-
-            if panel.height is not None:
-                h = to_pt(panel.height, self.units)
-            else:
-                h = w * src_aspect
-
-            # Calculate content dimensions using fit mode and alignment
-            from .units import calculate_fit
-
-            content_w, content_h, offset_x, offset_y = calculate_fit(
-                src_aspect, w, h, panel.fit, panel.align
-            )
-
-            # Group for the panel
+            # Create group for the panel
             g = etree.SubElement(root, "g")
-            g.set("transform", f"translate({x}, {y})")
+            g.set("transform", f"translate({content_rect.x}, {content_rect.y})")
 
-            # For cover mode, add a clip path to crop the overflow
+            # Set up clipping for cover mode
+            clip_id = None
             if panel.fit == "cover":
-                clip_id = f"clip-{panel.id}"
-                defs = etree.SubElement(g, "defs")
-                clip_path = etree.SubElement(defs, "clipPath")
-                clip_path.set("id", clip_id)
-                clip_rect = etree.SubElement(clip_path, "rect")
-                clip_rect.set("x", "0")
-                clip_rect.set("y", "0")
-                clip_rect.set("width", str(w))
-                clip_rect.set("height", str(h))
+                clip_id = self._add_clip_path(
+                    g,
+                    panel.id,
+                    to_pt(panel.width, self.units),
+                    content_rect.height
+                    if panel.height is None
+                    else to_pt(panel.height, self.units),
+                )
 
-            # Insert content
-            # Check if SVG
-            suffix = panel.file.suffix.lower()
-            if suffix == ".svg":
-                # Embed SVG by creating an <image> tag with data URI to avoid DOM conflicts
-                data_uri = self._get_data_uri(panel.file, "image/svg+xml")
-                img = etree.SubElement(g, "image")
-                img.set("x", str(offset_x))
-                img.set("y", str(offset_y))
-                img.set("width", str(content_w))
-                img.set("height", str(content_h))
-                img.set("{http://www.w3.org/1999/xlink}href", data_uri)
-                if panel.fit == "cover":
-                    img.set("clip-path", f"url(#{clip_id})")
-            else:
-                # PDF or Raster Image
-                # For PDF, we rasterize to PNG (easiest for SVG compatibility without huge libs)
-                # Browsers don't support image/pdf in SVG.
-                # If PNG/JPG, embed directly.
+            # Embed content
+            self._embed_content(g, panel, content_rect, source_info.doc[0], clip_id)
 
-                mime = "image/png"
-                if suffix in [".jpg", ".jpeg"]:
-                    mime = "image/jpeg"
-                    data_path = panel.file
-                elif suffix == ".png":
-                    mime = "image/png"
-                    data_path = panel.file
-                elif suffix == ".pdf":
-                    # Rasterize page to PNG
-                    pix = src_page.get_pixmap(dpi=300)
-                    data = pix.tobytes("png")
-                    b64 = base64.b64encode(data).decode("utf-8")
-                    data_uri = f"data:image/png;base64,{b64}"
-                    data_path = None  # signal that we have URI
-                else:
-                    # Fallback
-                    mime = "application/octet-stream"
-                    data_path = panel.file
-
-                if data_path:
-                    data_uri = self._get_data_uri(data_path, mime)
-
-                img = etree.SubElement(g, "image")
-                img.set("x", str(offset_x))
-                img.set("y", str(offset_y))
-                img.set("width", str(content_w))
-                img.set("height", str(content_h))
-                img.set("{http://www.w3.org/1999/xlink}href", data_uri)
-                if panel.fit == "cover":
-                    img.set("clip-path", f"url(#{clip_id})")
-
-            # Label (positioned relative to content, not cell)
-            self._draw_label(g, panel, content_w, content_h, offset_x, offset_y, index)
+            # Draw label
+            self._draw_label(g, panel, content_rect, index)
         finally:
-            src_doc.close()
+            source_info.doc.close()
+
+    def _add_clip_path(
+        self, g: etree.Element, panel_id: str, width: float, height: float
+    ) -> str:
+        """Add a clip path for cover mode and return its ID."""
+        clip_id = f"clip-{panel_id}"
+        defs = etree.SubElement(g, "defs")
+        clip_path = etree.SubElement(defs, "clipPath")
+        clip_path.set("id", clip_id)
+        clip_rect = etree.SubElement(clip_path, "rect")
+        clip_rect.set("x", "0")
+        clip_rect.set("y", "0")
+        clip_rect.set("width", str(width))
+        clip_rect.set("height", str(height))
+        return clip_id
+
+    def _embed_content(
+        self,
+        g: etree.Element,
+        panel: Panel,
+        content_rect,
+        src_page,
+        clip_id: str | None,
+    ) -> None:
+        """Embed the source content into the SVG group."""
+        suffix = panel.file.suffix.lower()
+
+        if suffix == ".svg":
+            data_uri = self._get_data_uri(panel.file, "image/svg+xml")
+        elif suffix in [".jpg", ".jpeg"]:
+            data_uri = self._get_data_uri(panel.file, "image/jpeg")
+        elif suffix == ".png":
+            data_uri = self._get_data_uri(panel.file, "image/png")
+        elif suffix == ".pdf":
+            # Rasterize PDF page to PNG
+            pix = src_page.get_pixmap(dpi=300)
+            data = pix.tobytes("png")
+            b64 = base64.b64encode(data).decode("utf-8")
+            data_uri = f"data:image/png;base64,{b64}"
+        else:
+            # Fallback for unknown types
+            data_uri = self._get_data_uri(panel.file, "application/octet-stream")
+
+        img = etree.SubElement(g, "image")
+        img.set("x", str(content_rect.offset_x))
+        img.set("y", str(content_rect.offset_y))
+        img.set("width", str(content_rect.width))
+        img.set("height", str(content_rect.height))
+        img.set("{http://www.w3.org/1999/xlink}href", data_uri)
+
+        if clip_id:
+            img.set("clip-path", f"url(#{clip_id})")
 
     def _get_data_uri(self, path: Path, mime: str) -> str:
+        """Read file and encode as data URI."""
         with open(path, "rb") as f:
             data = f.read()
         b64 = base64.b64encode(data).decode("utf-8")
         return f"data:{mime};base64,{b64}"
 
     def _draw_label(
-        self,
-        parent: etree.Element,
-        panel: Panel,
-        content_w: float,
-        content_h: float,
-        offset_x: float,
-        offset_y: float,
-        index: int,
-    ):
-        style = panel.label_style if panel.label_style else self.layout.page.label
-        if not style.enabled:
-            return
-
-        text_str = panel.label
-        if text_str is None and style.auto_sequence:
-            text_str = chr(65 + index)
+        self, parent: etree.Element, panel: Panel, content_rect, index: int
+    ) -> None:
+        """Draw the label for a panel."""
+        text_str = self.get_label_text(panel, index)
         if not text_str:
             return
-        if style.uppercase:
-            text_str = text_str.upper()
+
+        style = panel.label_style if panel.label_style else self.layout.page.label
 
         # Offset relative to the content position
-        x = offset_x + to_pt(style.offset_x, self.units)
-        y = offset_y + to_pt(style.offset_y, self.units)
+        x = content_rect.offset_x + to_pt(style.offset_x, self.units)
+        y = content_rect.offset_y + to_pt(style.offset_y, self.units)
 
-        # Create text element
         txt = etree.SubElement(parent, "text")
         txt.text = text_str
         txt.set("x", str(x))
         txt.set("y", str(y))
-
-        # Style
-        # Font family is tricky in SVG (system fonts).
         txt.set("font-family", style.font_family)
         txt.set("font-size", f"{style.font_size_pt}pt")
+
         if style.bold:
             txt.set("font-weight", "bold")
 
-        # Baseline alignment? SVG text y is usually baseline.
-        # If we want top-left of text at (x,y), we should adjust or use dominant-baseline.
-        txt.set("dominant-baseline", "hanging")  # Matches top-down coordinate logic
+        # Use hanging baseline so (x, y) is top-left of text
+        txt.set("dominant-baseline", "hanging")
