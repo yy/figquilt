@@ -66,7 +66,8 @@
             {
               "enum": [
                 "row",
-                "col"
+                "col",
+                "auto"
               ],
               "type": "string"
             },
@@ -75,7 +76,7 @@
             }
           ],
           "default": null,
-          "description": "Container type: row (horizontal) or col (vertical)",
+          "description": "Container type: row (horizontal), col (vertical), or auto",
           "title": "Type"
         },
         "children": {
@@ -122,6 +123,32 @@
           "description": "Inner margin of this container",
           "minimum": 0,
           "title": "Margin",
+          "type": "number"
+        },
+        "auto_mode": {
+          "default": "best",
+          "description": "Auto-layout bias preset",
+          "enum": [
+            "best",
+            "one-column",
+            "two-column"
+          ],
+          "title": "Auto Mode",
+          "type": "string"
+        },
+        "size_uniformity": {
+          "default": 0.6,
+          "description": "How strongly to favor similar panel sizes",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Size Uniformity",
+          "type": "number"
+        },
+        "main_scale": {
+          "default": 2.0,
+          "description": "Size weight for leaves with role='main'",
+          "exclusiveMinimum": 0,
+          "title": "Main Scale",
           "type": "number"
         },
         "id": {
@@ -202,6 +229,30 @@
           ],
           "default": null,
           "description": "Override default label styling for this panel"
+        },
+        "role": {
+          "default": "normal",
+          "description": "Optional prominence role for auto layout",
+          "enum": [
+            "normal",
+            "main"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional explicit size weight for auto layout",
+          "title": "Weight"
         }
       },
       "title": "LayoutNode",

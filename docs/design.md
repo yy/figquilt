@@ -331,14 +331,20 @@ layout:
 	5.	Rust core
 	•	Reimplement core composition engine in Rust later, keeping the same CLI and layout spec, with Python as a thin wrapper if needed.
 
-### 8.6 Auto-fill Layout
-	•	Input: A list of figure files. Optionally, a rough figure dimensions (width and approximate aspect ratio)
-	•	Output: Automatically computed layout that tiles them efficiently based on their aspect ratios.
+### 8.6 Auto-fill Layout (Implemented)
+	•	Input: Ordered leaf panels under `layout.type: auto`.
+	•	Output: Automatically computed panel cells that preserve sequence and fit container bounds.
+	•	Approach:
+	•	Estimate source aspect ratios,
+	•	Solve ordered row partitioning with dynamic programming,
+	•	Score candidate partitions by row-height preference (`auto_mode`), size uniformity (`size_uniformity`), and prominence targets (`role: main` / `weight`),
+	•	Emit resolved panel geometry without changing panel content rendering semantics.
+	•	Design lesson:
+	•	Prominence hints are soft objective terms; they influence layout best when sequence and aspect ratios permit alternate row partitions.
 
 ⸻
 
 ## 9. Development plan (for AI coding assistants)
-
 
 
 

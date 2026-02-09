@@ -72,9 +72,9 @@ class Panel(BaseModel):
 class LayoutNode(BaseModel):
     """A node in the layout tree - either a container or a leaf panel."""
 
-    # Container fields (used when type is "row" or "col")
-    type: Optional[Literal["row", "col"]] = Field(
-        None, description="Container type: row (horizontal) or col (vertical)"
+    # Container fields (used when type is "row", "col", or "auto")
+    type: Optional[Literal["row", "col", "auto"]] = Field(
+        None, description="Container type: row (horizontal), col (vertical), or auto"
     )
     children: Optional[List[LayoutNode]] = Field(
         None, description="Child nodes (containers or leaves)"
@@ -84,6 +84,15 @@ class LayoutNode(BaseModel):
     )
     gap: float = Field(0.0, ge=0, description="Gap between children (in page units)")
     margin: float = Field(0.0, ge=0, description="Inner margin of this container")
+    auto_mode: Literal["best", "one-column", "two-column"] = Field(
+        "best", description="Auto-layout bias preset"
+    )
+    size_uniformity: float = Field(
+        0.6, ge=0, le=1, description="How strongly to favor similar panel sizes"
+    )
+    main_scale: float = Field(
+        2.0, gt=0, description="Size weight for leaves with role='main'"
+    )
 
     # Leaf fields (used when type is None)
     id: Optional[str] = Field(None, description="Unique identifier for this panel")
@@ -99,6 +108,12 @@ class LayoutNode(BaseModel):
     )
     label_style: Optional[LabelStyle] = Field(
         None, description="Override default label styling for this panel"
+    )
+    role: Literal["normal", "main"] = Field(
+        "normal", description="Optional prominence role for auto layout"
+    )
+    weight: Optional[float] = Field(
+        None, gt=0, description="Optional explicit size weight for auto layout"
     )
 
     @field_validator("file")
@@ -117,12 +132,18 @@ class LayoutNode(BaseModel):
         if is_container:
             if not self.children:
                 raise ValueError("Container must have children")
-            if self.ratios is not None and len(self.ratios) != len(self.children):
-                raise ValueError(
-                    f"ratios length ({len(self.ratios)}) must match children length ({len(self.children)})"
-                )
-            if self.ratios is not None and any(r <= 0 for r in self.ratios):
-                raise ValueError("All ratios must be > 0")
+            if self.type == "auto":
+                if self.ratios is not None:
+                    raise ValueError("Auto container does not support ratios")
+                if any(child.is_container() for child in self.children):
+                    raise ValueError("Auto container children must be leaf panels")
+            else:
+                if self.ratios is not None and len(self.ratios) != len(self.children):
+                    raise ValueError(
+                        f"ratios length ({len(self.ratios)}) must match children length ({len(self.children)})"
+                    )
+                if self.ratios is not None and any(r <= 0 for r in self.ratios):
+                    raise ValueError("All ratios must be > 0")
         elif is_leaf:
             if not self.id:
                 raise ValueError("Leaf node must have id")
