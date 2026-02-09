@@ -260,6 +260,12 @@
           "title": "Margin",
           "type": "number"
         },
+        "auto_scale": {
+          "default": false,
+          "description": "Auto-fit oversized explicit panel layouts to the page content area",
+          "title": "Auto Scale",
+          "type": "boolean"
+        },
         "label": {
           "$ref": "#/$defs/LabelStyle",
           "description": "Default label style"
