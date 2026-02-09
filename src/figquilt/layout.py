@@ -152,6 +152,10 @@ class Page(BaseModel):
     margin: float = Field(
         0.0, ge=0, description="Page margin; panel coordinates are offset by this"
     )
+    auto_scale: bool = Field(
+        False,
+        description="Auto-fit oversized explicit panel layouts to the page content area",
+    )
     label: LabelStyle = Field(
         default_factory=LabelStyle, description="Default label style"
     )
