@@ -110,7 +110,7 @@ wheels = [
 
 [[package]]
 name = "figquilt"
-version = "0.1.7"
+version = "0.1.10"
 source = { editable = "." }
 dependencies = [
     { name = "lxml" },
