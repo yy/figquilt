@@ -1,7 +1,10 @@
 """Tests for grid layout resolution (converting layout tree to flat panels)."""
 
 from pathlib import Path
-from figquilt.layout import Layout, Page, LayoutNode
+
+import pytest
+
+from figquilt.layout import Layout, LayoutNode, Page, Panel
 
 
 def make_page(width=180, height=100, margin=0):
@@ -259,6 +262,172 @@ layout:
         doc = fitz.open(output_path)
         assert len(doc) == 1
         doc.close()
+
+
+class TestExplicitPanelsAutoScale:
+    """Tests for page-level auto-scaling in explicit panels mode."""
+
+    def test_default_mode_keeps_explicit_panel_geometry(self):
+        """Without auto_scale, explicit panel geometry is unchanged."""
+        from figquilt.grid import resolve_layout
+
+        layout = Layout(
+            page=Page(width=100, height=100, units="mm"),
+            panels=[
+                Panel(
+                    id="A",
+                    file=Path("a.pdf"),
+                    x=0,
+                    y=0,
+                    width=80,
+                    height=50,
+                ),
+                Panel(
+                    id="B",
+                    file=Path("b.pdf"),
+                    x=90,
+                    y=60,
+                    width=30,
+                    height=40,
+                ),
+            ],
+        )
+
+        panels = resolve_layout(layout)
+        assert panels[0].x == 0
+        assert panels[0].y == 0
+        assert panels[0].width == 80
+        assert panels[0].height == 50
+        assert panels[1].x == 90
+        assert panels[1].y == 60
+        assert panels[1].width == 30
+        assert panels[1].height == 40
+
+    def test_auto_scale_scales_down_oversized_layout(self):
+        """Auto-scale shrinks oversized explicit layouts to fit the page."""
+        from figquilt.grid import resolve_layout
+
+        layout = Layout(
+            page=Page(width=100, height=100, units="mm", auto_scale=True),
+            panels=[
+                Panel(
+                    id="A",
+                    file=Path("a.pdf"),
+                    x=0,
+                    y=0,
+                    width=80,
+                    height=50,
+                ),
+                Panel(
+                    id="B",
+                    file=Path("b.pdf"),
+                    x=90,
+                    y=60,
+                    width=30,
+                    height=40,
+                ),
+            ],
+        )
+
+        panels = resolve_layout(layout)
+
+        assert panels[0].x == pytest.approx(0)
+        assert panels[0].y == pytest.approx(0)
+        assert panels[0].width == pytest.approx(66.6666667, rel=1e-6)
+        assert panels[0].height == pytest.approx(41.6666667, rel=1e-6)
+        assert panels[1].x == pytest.approx(75.0, rel=1e-6)
+        assert panels[1].y == pytest.approx(50.0, rel=1e-6)
+        assert panels[1].width == pytest.approx(25.0, rel=1e-6)
+        assert panels[1].height == pytest.approx(33.3333333, rel=1e-6)
+
+    def test_auto_scale_shifts_negative_coords_without_unnecessary_scaling(self):
+        """Auto-scale should translate into bounds when size already fits."""
+        from figquilt.grid import resolve_layout
+
+        layout = Layout(
+            page=Page(width=100, height=100, units="mm", auto_scale=True),
+            panels=[
+                Panel(
+                    id="A",
+                    file=Path("a.pdf"),
+                    x=-10,
+                    y=-5,
+                    width=50,
+                    height=50,
+                ),
+                Panel(
+                    id="B",
+                    file=Path("b.pdf"),
+                    x=60,
+                    y=20,
+                    width=30,
+                    height=20,
+                ),
+            ],
+        )
+
+        panels = resolve_layout(layout)
+        assert panels[0].x == pytest.approx(0)
+        assert panels[0].y == pytest.approx(0)
+        assert panels[0].width == pytest.approx(50)
+        assert panels[0].height == pytest.approx(50)
+        assert panels[1].x == pytest.approx(70)
+        assert panels[1].y == pytest.approx(25)
+        assert panels[1].width == pytest.approx(30)
+        assert panels[1].height == pytest.approx(20)
+
+    def test_auto_scale_uses_margin_adjusted_content_area(self):
+        """Auto-scale should fit into page content area (page minus margins)."""
+        from figquilt.grid import resolve_layout
+
+        layout = Layout(
+            page=Page(width=100, height=100, units="mm", margin=10, auto_scale=True),
+            panels=[
+                Panel(
+                    id="A",
+                    file=Path("a.pdf"),
+                    x=0,
+                    y=0,
+                    width=100,
+                    height=100,
+                )
+            ],
+        )
+
+        panels = resolve_layout(layout)
+        assert panels[0].x == pytest.approx(0)
+        assert panels[0].y == pytest.approx(0)
+        assert panels[0].width == pytest.approx(80)
+        assert panels[0].height == pytest.approx(80)
+
+    def test_auto_scale_resolves_missing_height_from_source_size(self, tmp_path):
+        """Missing panel height should be resolved before auto-scaling."""
+        import fitz
+        from figquilt.grid import resolve_layout
+
+        panel_file = tmp_path / "source.pdf"
+        doc = fitz.open()
+        doc.new_page(width=200, height=100)  # aspect ratio (h/w) = 0.5
+        doc.save(panel_file)
+        doc.close()
+
+        layout = Layout(
+            page=Page(width=100, height=100, units="mm", auto_scale=True),
+            panels=[
+                Panel(
+                    id="A",
+                    file=panel_file,
+                    x=0,
+                    y=0,
+                    width=120,
+                    height=None,
+                )
+            ],
+        )
+
+        panels = resolve_layout(layout)
+        assert panels[0].width == pytest.approx(100, rel=1e-6)
+        assert panels[0].height == pytest.approx(50, rel=1e-6)
 
     def test_compose_nested_grid_layout(self, tmp_path):
         """Test that a nested grid layout composes correctly."""

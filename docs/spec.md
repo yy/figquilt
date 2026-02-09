@@ -30,6 +30,7 @@ You must specify either `layout` (recommended) or `panels`, but not both.
 | `dpi` | `int` | `300` | Resolution for rasterized output (PNG). |
 | `background` | `string` | `"white"` | Background color (name or hex). |
 | `margin` | `float` | `0` | Page margin. Panel coordinates are offset by this value. |
+| `auto_scale` | `bool` | `false` | In explicit `panels` mode, auto-fit oversized/off-page panel layouts into the page content area. |
 | `label` | `LabelStyle` | See below | Default label styling for all panels. |
 
 ### LabelStyle
@@ -91,6 +92,23 @@ When using `panels` instead of `layout`, each panel specifies explicit coordinat
 
 - **`contain`** (default): Scale to fit within the cell, preserving aspect ratio. May leave empty space.
 - **`cover`**: Scale to cover the entire cell, preserving aspect ratio. May clip overflow.
+
+### Page Auto-Scale (`page.auto_scale`)
+
+When `page.auto_scale: true` is set in explicit `panels` mode:
+
+- figquilt computes the bounding box of all panels in content coordinates (after resolving implicit panel heights from source aspect ratios).
+- If the layout is already fully within the page content area (after `page.margin`), no transform is applied.
+- If the layout overflows (too wide/tall, negative coordinates, or extends beyond content bounds), figquilt applies one global transform:
+  - translate so the layout bounding box starts at `(0, 0)`,
+  - then uniformly scale down by `min(content_width / bbox_width, content_height / bbox_height)`.
+
+This preserves relative geometry (all panel positions/sizes stay proportional) while guaranteeing the full composed layout fits within the page content area.
+
+Notes:
+
+- This setting is only used for explicit `panels` mode.
+- Grid `layout` mode already resolves directly into the page content area, so no additional auto-scale is needed.
 
 ### Alignment
 

@@ -352,3 +352,27 @@ layout:
 
     with pytest.raises(LayoutError):
         parse_layout(layout_file)
+
+
+def test_parse_page_auto_scale_flag(tmp_path):
+    """page.auto_scale should parse correctly."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 100
+  auto_scale: true
+
+panels:
+  - id: A
+    file: {panel.name}
+    x: 0
+    y: 0
+    width: 40
+""")
+
+    layout = parse_layout(layout_file)
+    assert layout.page.auto_scale is True
