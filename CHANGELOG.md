@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-02-09
+
 ### Highlights
 - Added `page.auto_scale` for explicit `panels` layouts to auto-fit oversized/off-page compositions into the page content area.
 - Added ordered `layout.type: auto` mode to compute panel layouts from a sequence while preserving reading order.
@@ -20,6 +22,8 @@ All notable changes to this project are documented in this file.
 - Added regression tests for explicit-panel auto-scale behavior, including margin-aware fitting and negative-coordinate normalization.
 - Refactored auto-layout scoring internals with prefix-sum geometry for simpler and faster row optimization.
 - Regenerated JSON schema to include the new `page.auto_scale` field.
+- Test suite: 82 passing tests.
+- Ruff lint: all checks passing.
 
 ## [0.1.10] - 2026-02-09
 

@@ -8,17 +8,18 @@
 
 See [CHANGELOG.md](CHANGELOG.md) for full release notes.
 
+### v0.2.0
+
+- Added `page.auto_scale` to auto-fit oversized/off-page explicit `panels` layouts into the page content area.
+- Added `layout.type: auto` for sequence-preserving automatic panel layout.
+- Added auto-layout controls for column bias, size similarity, and main-panel prominence hints (`role`, `weight`).
+
 ### v0.1.10
 
 - Correct `cover` clipping in PDF output.
 - Better layout safety checks with clear errors for invalid margins, ratios, and gaps.
 - Auto-labels now continue after `Z` (`AA`, `AB`, ...).
 - SVG PDF rasterization now respects `page.dpi`.
-
-### Unreleased
-
-- Added `page.auto_scale` to auto-fit oversized/off-page explicit `panels` layouts into the page content area.
-- Added `layout.type: auto` for sequence-preserving automatic panel layout.
 
 ## Philosophy
 
