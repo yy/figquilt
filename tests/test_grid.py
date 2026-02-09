@@ -264,6 +264,194 @@ layout:
         doc.close()
 
 
+class TestAutoLayout:
+    """Tests for automatic ordered layout mode."""
+
+    @staticmethod
+    def _make_pdf(path, width, height):
+        import fitz
+
+        doc = fitz.open()
+        doc.new_page(width=width, height=height)
+        doc.save(path)
+        doc.close()
+
+    @staticmethod
+    def _area_by_id(panels):
+        return {p.id: p.width * (p.height if p.height is not None else 0.0) for p in panels}
+
+    @staticmethod
+    def _cv(values):
+        mean = sum(values) / len(values)
+        if mean == 0:
+            return 0.0
+        var = sum((v - mean) ** 2 for v in values) / len(values)
+        return (var**0.5) / mean
+
+    def test_auto_layout_preserves_sequence_and_fits_bounds(self, tmp_path):
+        """Auto layout should preserve order and fit the page content area."""
+        from figquilt.grid import resolve_layout
+        from figquilt.parser import parse_layout
+
+        self._make_pdf(tmp_path / "a.pdf", 200, 100)
+        self._make_pdf(tmp_path / "b.pdf", 100, 160)
+        self._make_pdf(tmp_path / "c.pdf", 240, 100)
+        self._make_pdf(tmp_path / "d.pdf", 100, 100)
+        self._make_pdf(tmp_path / "e.pdf", 120, 180)
+
+        layout_file = tmp_path / "layout.yaml"
+        layout_file.write_text("""\
+page:
+  width: 180
+  height: 120
+  margin: 6
+
+layout:
+  type: auto
+  auto_mode: best
+  size_uniformity: 0.7
+  gap: 4
+  children:
+    - id: A
+      file: a.pdf
+    - id: B
+      file: b.pdf
+    - id: C
+      file: c.pdf
+    - id: D
+      file: d.pdf
+    - id: E
+      file: e.pdf
+""")
+
+        layout = parse_layout(layout_file)
+        panels = resolve_layout(layout)
+        ids = [p.id for p in panels]
+        assert ids == ["A", "B", "C", "D", "E"]
+
+        content_w = layout.page.width - 2 * layout.page.margin
+        content_h = layout.page.height - 2 * layout.page.margin
+        for panel in panels:
+            assert panel.x >= -1e-6
+            assert panel.y >= -1e-6
+            assert panel.x + panel.width <= content_w + 1e-6
+            assert panel.y + panel.height <= content_h + 1e-6
+
+    def test_auto_layout_higher_uniformity_reduces_area_spread(self, tmp_path):
+        """Higher size_uniformity should reduce panel area variance."""
+        from figquilt.grid import resolve_layout
+        from figquilt.parser import parse_layout
+
+        self._make_pdf(tmp_path / "a.pdf", 300, 90)
+        self._make_pdf(tmp_path / "b.pdf", 90, 220)
+        self._make_pdf(tmp_path / "c.pdf", 180, 120)
+        self._make_pdf(tmp_path / "d.pdf", 140, 140)
+        self._make_pdf(tmp_path / "e.pdf", 100, 260)
+
+        base_yaml = """\
+page:
+  width: 180
+  height: 130
+  margin: 6
+
+layout:
+  type: auto
+  auto_mode: best
+  size_uniformity: {uniformity}
+  gap: 4
+  children:
+    - id: A
+      file: a.pdf
+    - id: B
+      file: b.pdf
+    - id: C
+      file: c.pdf
+    - id: D
+      file: d.pdf
+    - id: E
+      file: e.pdf
+"""
+        low_file = tmp_path / "low.yaml"
+        low_file.write_text(base_yaml.format(uniformity=0.0))
+        high_file = tmp_path / "high.yaml"
+        high_file.write_text(base_yaml.format(uniformity=1.0))
+
+        low_layout = parse_layout(low_file)
+        high_layout = parse_layout(high_file)
+
+        low_panels = resolve_layout(low_layout)
+        high_panels = resolve_layout(high_layout)
+
+        low_cv = self._cv(list(self._area_by_id(low_panels).values()))
+        high_cv = self._cv(list(self._area_by_id(high_panels).values()))
+        assert high_cv <= low_cv
+
+    def test_auto_layout_main_role_increases_target_panel_area(self, tmp_path):
+        """A panel marked as main should receive a larger area than in normal mode."""
+        from figquilt.grid import resolve_layout
+        from figquilt.parser import parse_layout
+
+        self._make_pdf(tmp_path / "a.pdf", 120, 100)
+        self._make_pdf(tmp_path / "b.pdf", 260, 100)
+        self._make_pdf(tmp_path / "c.pdf", 120, 100)
+        self._make_pdf(tmp_path / "d.pdf", 120, 100)
+
+        normal_file = tmp_path / "normal.yaml"
+        normal_file.write_text("""\
+page:
+  width: 160
+  height: 150
+  margin: 5
+
+layout:
+  type: auto
+  auto_mode: one-column
+  size_uniformity: 0.8
+  gap: 4
+  children:
+    - id: B
+      file: b.pdf
+    - id: A
+      file: a.pdf
+    - id: C
+      file: c.pdf
+    - id: D
+      file: d.pdf
+""")
+
+        main_file = tmp_path / "main.yaml"
+        main_file.write_text("""\
+page:
+  width: 160
+  height: 150
+  margin: 5
+
+layout:
+  type: auto
+  auto_mode: one-column
+  size_uniformity: 0.8
+  main_scale: 2.5
+  gap: 4
+  children:
+    - id: B
+      file: b.pdf
+      role: main
+    - id: A
+      file: a.pdf
+    - id: C
+      file: c.pdf
+    - id: D
+      file: d.pdf
+""")
+
+        normal_panels = resolve_layout(parse_layout(normal_file))
+        main_panels = resolve_layout(parse_layout(main_file))
+
+        area_normal_b = self._area_by_id(normal_panels)["B"]
+        area_main_b = self._area_by_id(main_panels)["B"]
+        assert area_main_b > area_normal_b
+
+
 class TestExplicitPanelsAutoScale:
     """Tests for page-level auto-scaling in explicit panels mode."""
 

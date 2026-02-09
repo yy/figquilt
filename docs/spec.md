@@ -60,6 +60,24 @@ A `LayoutNode` can be a **Container** (holding other nodes) or a **Leaf** (holdi
 | `gap` | `float` | `0` | Gap between children (in page units). |
 | `margin` | `float` | `0` | Inner margin of this container. |
 
+#### Auto Container (`type: auto`)
+
+`type: auto` computes panel positions automatically from an ordered list of leaf children:
+
+- Preserves input sequence in reading order (left to right, top to bottom).
+- Computes contiguous row breaks (no reordering).
+- Fits within the container bounds without distorting panel aspect ratios.
+
+| Field | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `type` | `string` | Required | `"auto"` |
+| `children` | `List[LayoutNode]` | Required | Ordered leaf panels. |
+| `gap` | `float` | `0` | Horizontal and vertical spacing between auto-placed panels. |
+| `margin` | `float` | `0` | Inner margin of the auto container. |
+| `auto_mode` | `string` | `"best"` | Bias preset: `"best"`, `"one-column"`, `"two-column"`. |
+| `size_uniformity` | `float` | `0.6` | `0..1`, higher prefers more similar panel areas. |
+| `main_scale` | `float` | `2.0` | Size weight used for panels marked `role: main` (unless explicit `weight` is set). |
+
 #### Leaf Node (Panel)
 
 | Field | Type | Default | Description |
@@ -70,6 +88,8 @@ A `LayoutNode` can be a **Container** (holding other nodes) or a **Leaf** (holdi
 | `label_style` | `LabelStyle` | Inherited | Override label styling for this panel. |
 | `fit` | `string` | `"contain"` | `"contain"` or `"cover"`. |
 | `align` | `string` | `"center"` | Content alignment within cell (see Alignment). |
+| `role` | `string` | `"normal"` | Optional prominence hint for auto-layout (`"normal"` or `"main"`). |
+| `weight` | `float` | Auto | Optional explicit area weight for auto-layout; higher tends to produce a larger panel. |
 
 ### Panel (Explicit Coordinates Mode)
 
@@ -109,6 +129,20 @@ Notes:
 
 - This setting is only used for explicit `panels` mode.
 - Grid `layout` mode already resolves directly into the page content area, so no additional auto-scale is needed.
+
+### Auto Layout Objective (`type: auto`)
+
+Auto layout uses an ordered row-partition strategy with a scoring objective:
+
+- Keep input sequence order.
+- Prefer rows that align with the selected `auto_mode`:
+  - `one-column`: fewer panels per row (taller rows),
+  - `two-column`: more panels per row (shorter rows),
+  - `best`: evaluate both tendencies and choose lower score.
+- Penalize panel-area imbalance based on `size_uniformity`.
+- Respect panel prominence hints (`role: main` and `weight`) when distributing area.
+
+The resolver computes panel cell sizes and positions only. Panel content rendering still follows each panel's `fit`/`align` settings.
 
 ### Alignment
 

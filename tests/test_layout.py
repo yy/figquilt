@@ -376,3 +376,94 @@ panels:
 
     layout = parse_layout(layout_file)
     assert layout.page.auto_scale is True
+
+
+def test_parse_auto_layout_fields(tmp_path):
+    """Auto layout container should parse its configuration fields."""
+    for name in ["a.pdf", "b.pdf", "c.pdf"]:
+        (tmp_path / name).touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text("""\
+page:
+  width: 180
+  height: 120
+
+layout:
+  type: auto
+  auto_mode: two-column
+  size_uniformity: 0.8
+  main_scale: 2.5
+  gap: 4
+  children:
+    - id: A
+      file: a.pdf
+    - id: B
+      file: b.pdf
+      role: main
+    - id: C
+      file: c.pdf
+      weight: 1.2
+""")
+
+    layout = parse_layout(layout_file)
+    assert layout.layout is not None
+    assert layout.layout.type == "auto"
+    assert layout.layout.auto_mode == "two-column"
+    assert layout.layout.size_uniformity == 0.8
+    assert layout.layout.main_scale == 2.5
+    assert layout.layout.children[1].role == "main"
+    assert layout.layout.children[2].weight == 1.2
+
+
+def test_auto_layout_rejects_nested_containers(tmp_path):
+    """Auto layout currently requires ordered leaf children only."""
+    for name in ["a.pdf", "b.pdf", "c.pdf"]:
+        (tmp_path / name).touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text("""\
+page:
+  width: 180
+  height: 120
+
+layout:
+  type: auto
+  children:
+    - id: A
+      file: a.pdf
+    - type: row
+      children:
+        - id: B
+          file: b.pdf
+        - id: C
+          file: c.pdf
+""")
+
+    with pytest.raises(LayoutError):
+        parse_layout(layout_file)
+
+
+def test_auto_layout_rejects_ratios(tmp_path):
+    """Auto layout should not accept explicit ratios."""
+    for name in ["a.pdf", "b.pdf"]:
+        (tmp_path / name).touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text("""\
+page:
+  width: 180
+  height: 120
+
+layout:
+  type: auto
+  ratios: [1, 1]
+  children:
+    - id: A
+      file: a.pdf
+    - id: B
+      file: b.pdf
+""")
+
+    with pytest.raises(LayoutError):
+        parse_layout(layout_file)
