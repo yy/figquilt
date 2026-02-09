@@ -15,6 +15,10 @@ See [CHANGELOG.md](CHANGELOG.md) for full release notes.
 - Auto-labels now continue after `Z` (`AA`, `AB`, ...).
 - SVG PDF rasterization now respects `page.dpi`.
 
+### Unreleased
+
+- Added `page.auto_scale` to auto-fit oversized/off-page explicit `panels` layouts into the page content area.
+
 ## Philosophy
 
 - **Declarative over imperative**: Describe *what* your figure should look like, not *how* to construct it. Layouts are data, not scripts.
@@ -29,6 +33,7 @@ See [CHANGELOG.md](CHANGELOG.md) for full release notes.
 - **Automated Labeling**: Automatically add subfigure labels (A, B, C...) with consistent styling.
 - **Reproducible**: Layouts are defined in version-controllable text files (YAML).
 - **Language Agnostic**: It is a CLI tool, so it works with outputs from any tool (R, Python, Julia, Inkscape, etc.).
+- **Auto-Fit for Manual Layouts**: Optional `page.auto_scale` preserves panel geometry while fitting explicit layouts to the page.
 
 ## Installation
 
@@ -127,6 +132,32 @@ panels:
 ```
 
 Panel coordinates are relative to the margin edge. A panel at `x: 0, y: 0` with a 10mm margin will appear at position (10mm, 10mm) on the page.
+
+### Auto-Scale Explicit Panels to Fit Page
+
+When working in explicit `panels` mode, enable `page.auto_scale` to automatically fit oversized or off-page layouts:
+
+```yaml
+page:
+  width: 180
+  height: 120
+  margin: 10
+  auto_scale: true
+
+panels:
+  - id: A
+    file: "plots/left.pdf"
+    x: -5
+    y: 0
+    width: 100
+  - id: B
+    file: "plots/right.pdf"
+    x: 110
+    y: 10
+    width: 100
+```
+
+`figquilt` computes the panel bounding box and applies one global transform (translate + uniform scale), preserving the layout's relative geometry while fitting it into the page content area.
 
 ### Grid Layout
 

@@ -36,7 +36,12 @@ This document outlines the roadmap and progress for the `figquilt` project.
 - [x] Implement `gap` and `margin` for spacing control
 - [x] Add `fit` modes (`contain`, `cover`) for panels
 
+## Milestone 6: Explicit Layout Auto-Fit (✅ Completed)
+- [x] Add `page.auto_scale` for explicit `panels` mode
+- [x] Fit overflow layouts to page content area (`page.margin` aware)
+- [x] Resolve missing explicit panel heights from source aspect ratio before fitting
+- [x] Add regression tests for scaling, translation, and margin behavior
+
 ## Future Milestones
 - [ ] Shared legend space
-- [ ] Auto-scaling to fit page
 - [ ] Inkscape / Illustrator anchor export
