@@ -4,6 +4,17 @@
 
 `figquilt` takes a simple layout file (YAML) describing panels and their structure, composed of various inputs (plots from R/Python, diagrams, photos), and stitches them into a single output file (PDF, SVG) with automatic labeling and precise dimension control.
 
+## What's New
+
+See [CHANGELOG.md](CHANGELOG.md) for full release notes.
+
+### v0.1.10
+
+- Correct `cover` clipping in PDF output.
+- Better layout safety checks with clear errors for invalid margins, ratios, and gaps.
+- Auto-labels now continue after `Z` (`AA`, `AB`, ...).
+- SVG PDF rasterization now respects `page.dpi`.
+
 ## Philosophy
 
 - **Declarative over imperative**: Describe *what* your figure should look like, not *how* to construct it. Layouts are data, not scripts.
