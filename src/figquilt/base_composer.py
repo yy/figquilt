@@ -124,7 +124,7 @@ class BaseComposer(ABC):
 
         text = panel.label
         if text is None and style.auto_sequence:
-            text = chr(65 + index)  # A, B, C...
+            text = self._index_to_label(index)
 
         if not text:
             return None
@@ -133,6 +133,21 @@ class BaseComposer(ABC):
             text = text.upper()
 
         return text
+
+    @staticmethod
+    def _index_to_label(index: int) -> str:
+        """Convert zero-based index to spreadsheet-like labels (A..Z, AA..)."""
+        if index < 0:
+            raise ValueError("index must be non-negative")
+        chars: list[str] = []
+        value = index
+        while True:
+            value, remainder = divmod(value, 26)
+            chars.append(chr(65 + remainder))
+            if value == 0:
+                break
+            value -= 1
+        return "".join(reversed(chars))
 
     def parse_color(self, color_str: str) -> tuple[float, float, float] | None:
         """

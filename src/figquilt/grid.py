@@ -2,6 +2,7 @@
 
 from typing import List
 from .layout import Layout, LayoutNode, Panel
+from .errors import LayoutError
 
 
 def resolve_layout(layout: Layout) -> List[Panel]:
@@ -24,9 +25,13 @@ def resolve_layout(layout: Layout) -> List[Panel]:
     margin = layout.page.margin
     content_w = layout.page.width - 2 * margin
     content_h = layout.page.height - 2 * margin
+    if content_w <= 0 or content_h <= 0:
+        raise LayoutError(
+            "Page content area is non-positive after applying page margin; reduce margin or increase page size"
+        )
 
     panels: List[Panel] = []
-    _resolve_node(layout.layout, 0, 0, content_w, content_h, panels)
+    _resolve_node(layout.layout, 0, 0, content_w, content_h, panels, path=("layout",))
     return panels
 
 
@@ -37,6 +42,7 @@ def _resolve_node(
     width: float,
     height: float,
     panels: List[Panel],
+    path: tuple[str, ...],
 ) -> None:
     """
     Recursively resolve a layout node into panels.
@@ -49,6 +55,10 @@ def _resolve_node(
     """
     if not node.is_container():
         # Leaf node: create a panel
+        if width <= 0 or height <= 0:
+            raise LayoutError(
+                f"Leaf node '{node.id}' has non-positive size ({width}x{height}) at {'.'.join(path)}"
+            )
         panels.append(
             Panel(
                 id=node.id,
@@ -71,6 +81,10 @@ def _resolve_node(
     inner_y = y + margin
     inner_w = width - 2 * margin
     inner_h = height - 2 * margin
+    if inner_w <= 0 or inner_h <= 0:
+        raise LayoutError(
+            f"Container at {'.'.join(path)} has non-positive inner size after margin; reduce container margin"
+        )
 
     children = node.children
     n = len(children)
@@ -78,6 +92,8 @@ def _resolve_node(
     # Calculate ratios (default to equal distribution)
     ratios = node.ratios if node.ratios else [1.0] * n
     total_ratio = sum(ratios)
+    if total_ratio <= 0:
+        raise LayoutError(f"Container at {'.'.join(path)} has non-positive ratio sum")
 
     # Calculate available space after gaps
     gap = node.gap
@@ -86,16 +102,40 @@ def _resolve_node(
     if node.type == "row":
         # Horizontal layout
         available = inner_w - total_gap
+        if available <= 0:
+            raise LayoutError(
+                f"Container at {'.'.join(path)} has non-positive available width after gaps"
+            )
         cursor = inner_x
         for i, child in enumerate(children):
             child_w = (ratios[i] / total_ratio) * available
-            _resolve_node(child, cursor, inner_y, child_w, inner_h, panels)
+            _resolve_node(
+                child,
+                cursor,
+                inner_y,
+                child_w,
+                inner_h,
+                panels,
+                path=(*path, f"children[{i}]"),
+            )
             cursor += child_w + gap
     else:
         # Vertical layout (col)
         available = inner_h - total_gap
+        if available <= 0:
+            raise LayoutError(
+                f"Container at {'.'.join(path)} has non-positive available height after gaps"
+            )
         cursor = inner_y
         for i, child in enumerate(children):
             child_h = (ratios[i] / total_ratio) * available
-            _resolve_node(child, inner_x, cursor, inner_w, child_h, panels)
+            _resolve_node(
+                child,
+                inner_x,
+                cursor,
+                inner_w,
+                child_h,
+                panels,
+                path=(*path, f"children[{i}]"),
+            )
             cursor += child_h + gap

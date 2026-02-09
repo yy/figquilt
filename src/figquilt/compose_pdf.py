@@ -6,7 +6,7 @@ import fitz
 
 from .base_composer import BaseComposer
 from .layout import Layout, Panel
-from .units import to_pt
+from .units import alignment_factors, to_pt
 
 # PyMuPDF font name mappings
 _FONT_REGULAR = "helv"  # Helvetica
@@ -49,18 +49,35 @@ class PDFComposer(BaseComposer):
 
         try:
             content_rect = self.calculate_content_rect(panel, source_info.aspect_ratio)
-            rect = fitz.Rect(
+            content_draw_rect = fitz.Rect(
                 content_rect.x + content_rect.offset_x,
                 content_rect.y + content_rect.offset_y,
                 content_rect.x + content_rect.offset_x + content_rect.width,
                 content_rect.y + content_rect.offset_y + content_rect.height,
             )
+            cell_w = to_pt(panel.width, self.units)
+            cell_h = (
+                to_pt(panel.height, self.units)
+                if panel.height is not None
+                else cell_w * source_info.aspect_ratio
+            )
+            cell_rect = fitz.Rect(
+                content_rect.x,
+                content_rect.y,
+                content_rect.x + cell_w,
+                content_rect.y + cell_h,
+            )
 
-            self._embed_content(page, rect, source_info.doc, panel)
+            if panel.fit == "cover":
+                self._embed_cover(page, cell_rect, source_info.doc, panel)
+                label_rect = cell_rect
+            else:
+                self._embed_content(page, content_draw_rect, source_info.doc, panel)
+                label_rect = content_draw_rect
         finally:
             source_info.doc.close()
 
-        self._draw_label(page, panel, rect, index)
+        self._draw_label(page, panel, label_rect, index)
 
     def _embed_content(
         self, page: fitz.Page, rect: fitz.Rect, src_doc: fitz.Document, panel: Panel
@@ -79,6 +96,62 @@ class PDFComposer(BaseComposer):
         else:
             # Insert as image (works for PNG/JPEG)
             page.insert_image(rect, filename=panel.file)
+
+    def _embed_cover(
+        self, page: fitz.Page, cell_rect: fitz.Rect, src_doc: fitz.Document, panel: Panel
+    ) -> None:
+        """Embed content in cover mode by clipping to the panel cell."""
+        if src_doc.is_pdf:
+            clip_rect = self._compute_source_clip(src_doc[0].rect, cell_rect, panel.align)
+            page.show_pdf_page(cell_rect, src_doc, 0, clip=clip_rect)
+            return
+
+        if panel.file.suffix.lower() == ".svg":
+            pdf_bytes = src_doc.convert_to_pdf()
+            src_pdf = fitz.open("pdf", pdf_bytes)
+            try:
+                clip_rect = self._compute_source_clip(
+                    src_pdf[0].rect, cell_rect, panel.align
+                )
+                page.show_pdf_page(cell_rect, src_pdf, 0, clip=clip_rect)
+            finally:
+                src_pdf.close()
+            return
+
+        # Raster images: render cropped source area into the destination cell.
+        src_page = src_doc[0]
+        clip_rect = self._compute_source_clip(src_page.rect, cell_rect, panel.align)
+        zoom_x = cell_rect.width / clip_rect.width
+        zoom_y = cell_rect.height / clip_rect.height
+        pix = src_page.get_pixmap(
+            matrix=fitz.Matrix(zoom_x, zoom_y),
+            clip=clip_rect,
+            alpha=False,
+        )
+        page.insert_image(cell_rect, pixmap=pix, keep_proportion=False)
+
+    def _compute_source_clip(
+        self, src_rect: fitz.Rect, target_rect: fitz.Rect, align: str
+    ) -> fitz.Rect:
+        """Compute a source clip rectangle for cover mode with alignment-aware crop."""
+        src_w = src_rect.width
+        src_h = src_rect.height
+        src_aspect = src_h / src_w
+        target_aspect = target_rect.height / target_rect.width
+        h_factor, v_factor = alignment_factors(align)
+
+        if src_aspect > target_aspect:
+            # Source is taller than target: crop top/bottom.
+            clip_h = src_w * target_aspect
+            extra_h = src_h - clip_h
+            clip_y0 = src_rect.y0 + extra_h * v_factor
+            return fitz.Rect(src_rect.x0, clip_y0, src_rect.x1, clip_y0 + clip_h)
+
+        # Source is wider than target: crop left/right.
+        clip_w = src_h / target_aspect
+        extra_w = src_w - clip_w
+        clip_x0 = src_rect.x0 + extra_w * h_factor
+        return fitz.Rect(clip_x0, src_rect.y0, clip_x0 + clip_w, src_rect.y1)
 
     def _draw_label(
         self, page: fitz.Page, panel: Panel, rect: fitz.Rect, index: int

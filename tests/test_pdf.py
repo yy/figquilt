@@ -136,7 +136,6 @@ def test_compose_pdf_with_margin(tmp_path, dummy_pdf):
 
     # The panel should be offset by margin (10mm = 28.35pt)
     doc = fitz.open(output_pdf)
-    page = doc[0]
     # Extract images/forms to check position - or just verify doc renders
     doc.close()
 

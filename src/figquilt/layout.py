@@ -23,7 +23,7 @@ class LabelStyle(BaseModel):
     enabled: bool = Field(True, description="Whether to show labels")
     auto_sequence: bool = Field(True, description="Auto-generate labels A, B, C...")
     font_family: str = Field("Helvetica", description="Font family for labels")
-    font_size_pt: float = Field(8.0, description="Font size in points")
+    font_size_pt: float = Field(8.0, gt=0, description="Font size in points")
     offset_x: float = Field(
         2.0, description="Horizontal offset from panel edge (in page units)"
     )
@@ -41,9 +41,9 @@ class Panel(BaseModel):
     file: Path = Field(..., description="Path to source file (PDF, SVG, or PNG)")
     x: float = Field(..., description="X position from left edge (in page units)")
     y: float = Field(..., description="Y position from top edge (in page units)")
-    width: float = Field(..., description="Panel width (in page units)")
+    width: float = Field(..., gt=0, description="Panel width (in page units)")
     height: Optional[float] = Field(
-        None, description="Panel height; if omitted, computed from aspect ratio"
+        None, gt=0, description="Panel height; if omitted, computed from aspect ratio"
     )
     fit: FitMode = Field(
         "contain",
@@ -82,8 +82,8 @@ class LayoutNode(BaseModel):
     ratios: Optional[List[float]] = Field(
         None, description="Relative sizing of children (e.g., [3, 2] = 60%/40%)"
     )
-    gap: float = Field(0.0, description="Gap between children (in page units)")
-    margin: float = Field(0.0, description="Inner margin of this container")
+    gap: float = Field(0.0, ge=0, description="Gap between children (in page units)")
+    margin: float = Field(0.0, ge=0, description="Inner margin of this container")
 
     # Leaf fields (used when type is None)
     id: Optional[str] = Field(None, description="Unique identifier for this panel")
@@ -121,6 +121,8 @@ class LayoutNode(BaseModel):
                 raise ValueError(
                     f"ratios length ({len(self.ratios)}) must match children length ({len(self.children)})"
                 )
+            if self.ratios is not None and any(r <= 0 for r in self.ratios):
+                raise ValueError("All ratios must be > 0")
         elif is_leaf:
             if not self.id:
                 raise ValueError("Leaf node must have id")
@@ -138,21 +140,30 @@ class LayoutNode(BaseModel):
 class Page(BaseModel):
     """Page dimensions and default settings."""
 
-    width: float = Field(..., description="Page width (in specified units)")
-    height: float = Field(..., description="Page height (in specified units)")
+    width: float = Field(..., gt=0, description="Page width (in specified units)")
+    height: float = Field(..., gt=0, description="Page height (in specified units)")
     units: Literal["mm", "inches", "pt"] = Field(
         "mm", description="Units for dimensions"
     )
-    dpi: int = Field(300, description="Resolution for rasterized output")
+    dpi: int = Field(300, ge=1, description="Resolution for rasterized output")
     background: Optional[str] = Field(
         "white", description="Background color (name or hex)"
     )
     margin: float = Field(
-        0.0, description="Page margin; panel coordinates are offset by this"
+        0.0, ge=0, description="Page margin; panel coordinates are offset by this"
     )
     label: LabelStyle = Field(
         default_factory=LabelStyle, description="Default label style"
     )
+
+    @model_validator(mode="after")
+    def validate_margin(self) -> Page:
+        max_margin = min(self.width, self.height) / 2
+        if self.margin >= max_margin:
+            raise ValueError(
+                f"Page margin ({self.margin}) must be less than half of smaller page dimension ({max_margin})"
+            )
+        return self
 
 
 class Layout(BaseModel):
@@ -172,4 +183,23 @@ class Layout(BaseModel):
             raise ValueError("Must specify either 'panels' or 'layout'")
         if self.panels is not None and self.layout is not None:
             raise ValueError("Cannot specify both 'panels' and 'layout'")
+
+        ids = (
+            [panel.id for panel in self.panels]
+            if self.panels is not None
+            else list(_iter_layout_ids(self.layout))
+        )
+        if len(ids) != len(set(ids)):
+            raise ValueError("Panel IDs must be unique")
         return self
+
+
+def _iter_layout_ids(node: Optional[LayoutNode]):
+    if node is None:
+        return
+    if node.is_container():
+        for child in node.children or []:
+            yield from _iter_layout_ids(child)
+        return
+    if node.id is not None:
+        yield node.id

@@ -294,3 +294,18 @@ class TestColorParsing:
         # Invalid colors should return None
         assert composer.parse_color("notacolor") is None
         assert composer.parse_color("#gg0000") is None
+
+
+def test_auto_label_sequence_continues_after_z():
+    """Auto-generated labels should continue as AA, AB, ... after Z."""
+    from figquilt.compose_pdf import PDFComposer
+    from figquilt.layout import Layout, Page, Panel
+    from pathlib import Path
+
+    panel = Panel(id="X", file=Path("panel.pdf"), x=0, y=0, width=10)
+    layout = Layout(page=Page(width=100, height=100), panels=[panel])
+    composer = PDFComposer(layout)
+
+    assert composer.get_label_text(panel, 25) == "Z"
+    assert composer.get_label_text(panel, 26) == "AA"
+    assert composer.get_label_text(panel, 27) == "AB"

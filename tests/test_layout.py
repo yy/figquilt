@@ -251,3 +251,104 @@ layout:
 
     with pytest.raises(LayoutError):
         parse_layout(layout_file)
+
+
+def test_ratios_must_be_positive(tmp_path):
+    """Ratios must be > 0."""
+    for name in ["a.pdf", "b.pdf"]:
+        (tmp_path / name).touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text("""\
+page:
+  width: 100
+  height: 100
+
+layout:
+  type: row
+  ratios: [1, 0]
+  children:
+    - id: A
+      file: a.pdf
+    - id: B
+      file: b.pdf
+""")
+
+    with pytest.raises(LayoutError):
+        parse_layout(layout_file)
+
+
+def test_page_margin_must_not_consume_page(tmp_path):
+    """Page margin must leave positive content area."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 80
+  margin: 40
+
+panels:
+  - id: A
+    file: {panel.name}
+    x: 0
+    y: 0
+    width: 10
+""")
+
+    with pytest.raises(LayoutError):
+        parse_layout(layout_file)
+
+
+def test_duplicate_panel_ids_raise_error(tmp_path):
+    """Panel IDs must be unique in explicit panel mode."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 100
+
+panels:
+  - id: A
+    file: {panel.name}
+    x: 0
+    y: 0
+    width: 40
+  - id: A
+    file: {panel.name}
+    x: 50
+    y: 0
+    width: 40
+""")
+
+    with pytest.raises(LayoutError):
+        parse_layout(layout_file)
+
+
+def test_duplicate_grid_leaf_ids_raise_error(tmp_path):
+    """Panel IDs must be unique in grid layout mode."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 100
+
+layout:
+  type: row
+  children:
+    - id: A
+      file: {panel.name}
+    - id: A
+      file: {panel.name}
+""")
+
+    with pytest.raises(LayoutError):
+        parse_layout(layout_file)

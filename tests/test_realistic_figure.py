@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import numpy as np
-from pathlib import Path
 import yaml
 from figquilt.compose_pdf import PDFComposer
 from figquilt.parser import parse_layout

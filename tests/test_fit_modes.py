@@ -114,6 +114,45 @@ def test_fit_cover_wide_image_in_square_cell(tmp_path, wide_pdf):
     doc.close()
 
 
+def test_fit_cover_clips_to_cell_bounds(tmp_path, wide_pdf):
+    """Cover mode should crop overflow to panel bounds in PDF output."""
+    layout_data = {
+        "page": {
+            "width": 200,
+            "height": 100,
+            "units": "pt",
+            "background": "white",
+        },
+        "panels": [
+            {
+                "id": "A",
+                "file": str(wide_pdf),
+                "x": 0,
+                "y": 0,
+                "width": 100,
+                "height": 100,
+                "fit": "cover",
+            }
+        ],
+    }
+    layout_file = tmp_path / "layout_clip.yaml"
+    with open(layout_file, "w") as f:
+        yaml.dump(layout_data, f)
+
+    layout = parse_layout(layout_file)
+    output_pdf = tmp_path / "out.pdf"
+    PDFComposer(layout).compose(output_pdf)
+
+    doc = fitz.open(output_pdf)
+    pix = doc[0].get_pixmap(dpi=72)
+    doc.close()
+
+    n = pix.n
+    idx = (50 * pix.width + 150) * n
+    rgb = tuple(pix.samples[idx : idx + 3])
+    assert rgb == (255, 255, 255)
+
+
 def test_fit_default_is_contain(tmp_path, wide_pdf):
     """When fit is not specified, it should default to 'contain'."""
     layout_data = {

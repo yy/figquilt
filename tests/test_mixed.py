@@ -1,9 +1,8 @@
 import pytest
 import fitz
-from pathlib import Path
 from figquilt.compose_pdf import PDFComposer
 from figquilt.compose_svg import SVGComposer
-from figquilt.images import get_image_size
+from figquilt.parser import parse_layout
 import yaml
 from PIL import Image
 
@@ -43,7 +42,6 @@ def test_compose_mixed_to_pdf(tmp_path, dummy_assets):
     with open(layout_file, "w") as f:
         yaml.dump(layout_data, f)
         
-    from figquilt.parser import parse_layout
     layout = parse_layout(layout_file)
     
     # PDF Output
@@ -55,10 +53,7 @@ def test_compose_mixed_to_pdf(tmp_path, dummy_assets):
     # Verify content roughly
     doc = fitz.open(out_pdf)
     assert doc.page_count == 1
-    # We should have 3 images/xobjects on page?
-    # PDF (xobject), PNG (image), SVG (image)
-    # fitz might flatten SVG to drawing commands or image.
-    pass
+    doc.close()
 
 def test_compose_mixed_to_svg(tmp_path, dummy_assets):
     pdf, png, svg = dummy_assets
@@ -74,10 +69,8 @@ def test_compose_mixed_to_svg(tmp_path, dummy_assets):
     with open(layout_file, "w") as f:
         yaml.dump(layout_data, f)
 
-    from figquilt.parser import parse_layout
     layout = parse_layout(layout_file)
-    
-    from figquilt.compose_svg import SVGComposer
+
     out_svg = tmp_path / "fig.svg"
     composer = SVGComposer(layout)
     composer.compose(out_svg)
@@ -101,15 +94,43 @@ def test_compose_to_png(tmp_path, dummy_assets):
     with open(layout_file, "w") as f:
         yaml.dump(layout_data, f)
 
-    from figquilt.parser import parse_layout
     layout = parse_layout(layout_file)
-    
-    from figquilt.compose_pdf import PDFComposer
+
     # Mock CLI logic manually
     composer = PDFComposer(layout)
     doc = composer.build()
     pix = doc[0].get_pixmap(dpi=72)
     out_png = tmp_path / "fig.png"
     pix.save(str(out_png))
-    
+    doc.close()
+
     assert out_png.exists()
+
+
+def test_svg_pdf_rasterization_uses_page_dpi(tmp_path, dummy_assets, monkeypatch):
+    """SVG output should use page.dpi when rasterizing PDF panels."""
+    pdf, _, _ = dummy_assets
+    layout_data = {
+        "page": {"width": 100, "height": 100, "dpi": 123},
+        "panels": [{"id": "A", "file": str(pdf), "x": 0, "y": 0, "width": 50}],
+    }
+    layout_file = tmp_path / "layout_dpi.yaml"
+    with open(layout_file, "w") as f:
+        yaml.dump(layout_data, f)
+
+    layout = parse_layout(layout_file)
+
+    seen_dpi = []
+    original_get_pixmap = fitz.Page.get_pixmap
+
+    def wrapped_get_pixmap(self, *args, **kwargs):
+        if "dpi" in kwargs:
+            seen_dpi.append(kwargs["dpi"])
+        return original_get_pixmap(self, *args, **kwargs)
+
+    monkeypatch.setattr(fitz.Page, "get_pixmap", wrapped_get_pixmap)
+
+    out_svg = tmp_path / "fig_dpi.svg"
+    SVGComposer(layout).compose(out_svg)
+    assert out_svg.exists()
+    assert 123 in seen_dpi

@@ -65,6 +65,7 @@ class SVGComposer(BaseComposer):
                 clip_id = self._add_clip_path(
                     g,
                     panel.id,
+                    index,
                     to_pt(panel.width, self.units),
                     content_rect.height
                     if panel.height is None
@@ -80,10 +81,10 @@ class SVGComposer(BaseComposer):
             source_info.doc.close()
 
     def _add_clip_path(
-        self, g: etree.Element, panel_id: str, width: float, height: float
+        self, g: etree.Element, panel_id: str, index: int, width: float, height: float
     ) -> str:
         """Add a clip path for cover mode and return its ID."""
-        clip_id = f"clip-{panel_id}"
+        clip_id = f"clip-{panel_id}-{index}"
         defs = etree.SubElement(g, "defs")
         clip_path = etree.SubElement(defs, "clipPath")
         clip_path.set("id", clip_id)
@@ -113,7 +114,7 @@ class SVGComposer(BaseComposer):
             data_uri = self._get_data_uri(panel.file, "image/png")
         elif suffix == ".pdf":
             # Rasterize PDF page to PNG
-            pix = src_page.get_pixmap(dpi=300)
+            pix = src_page.get_pixmap(dpi=self.layout.page.dpi)
             data = pix.tobytes("png")
             b64 = base64.b64encode(data).decode("utf-8")
             data_uri = f"data:image/png;base64,{b64}"

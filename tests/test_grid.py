@@ -269,7 +269,7 @@ layout:
         # Create test panel files
         for name in ["header.pdf", "left.pdf", "right.pdf"]:
             doc = fitz.open()
-            page = doc.new_page(width=100, height=100)
+            doc.new_page(width=100, height=100)
             doc.save(str(tmp_path / name))
             doc.close()
 

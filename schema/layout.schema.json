@@ -26,6 +26,7 @@
         "font_size_pt": {
           "default": 8.0,
           "description": "Font size in points",
+          "exclusiveMinimum": 0,
           "title": "Font Size Pt",
           "type": "number"
         },
@@ -112,12 +113,14 @@
         "gap": {
           "default": 0.0,
           "description": "Gap between children (in page units)",
+          "minimum": 0,
           "title": "Gap",
           "type": "number"
         },
         "margin": {
           "default": 0.0,
           "description": "Inner margin of this container",
+          "minimum": 0,
           "title": "Margin",
           "type": "number"
         },
@@ -209,11 +212,13 @@
       "properties": {
         "width": {
           "description": "Page width (in specified units)",
+          "exclusiveMinimum": 0,
           "title": "Width",
           "type": "number"
         },
         "height": {
           "description": "Page height (in specified units)",
+          "exclusiveMinimum": 0,
           "title": "Height",
           "type": "number"
         },
@@ -231,6 +236,7 @@
         "dpi": {
           "default": 300,
           "description": "Resolution for rasterized output",
+          "minimum": 1,
           "title": "Dpi",
           "type": "integer"
         },
@@ -250,6 +256,7 @@
         "margin": {
           "default": 0.0,
           "description": "Page margin; panel coordinates are offset by this",
+          "minimum": 0,
           "title": "Margin",
           "type": "number"
         },
@@ -291,12 +298,14 @@
         },
         "width": {
           "description": "Panel width (in page units)",
+          "exclusiveMinimum": 0,
           "title": "Width",
           "type": "number"
         },
         "height": {
           "anyOf": [
             {
+              "exclusiveMinimum": 0,
               "type": "number"
             },
             {

@@ -1,6 +1,5 @@
 import fitz
 from PIL import Image, ImageDraw
-import os
 from pathlib import Path
 
 ASSET_DIR = Path("examples/assets")

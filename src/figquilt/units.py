@@ -35,6 +35,11 @@ _ALIGNMENT_OFFSETS: dict[str, tuple[float, float]] = {
 }
 
 
+def alignment_factors(align: str) -> tuple[float, float]:
+    """Return horizontal / vertical alignment factors in [0, 1]."""
+    return _ALIGNMENT_OFFSETS.get(align, (0.5, 0.5))
+
+
 def calculate_fit(
     src_aspect: float,
     cell_w: float,
@@ -82,7 +87,7 @@ def calculate_fit(
     # Calculate offsets based on alignment using lookup table
     space_x = cell_w - content_w
     space_y = cell_h - content_h
-    h_factor, v_factor = _ALIGNMENT_OFFSETS.get(align, (0.5, 0.5))
+    h_factor, v_factor = alignment_factors(align)
     offset_x = space_x * h_factor
     offset_y = space_y * v_factor
 
