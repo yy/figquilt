@@ -6,15 +6,19 @@ All notable changes to this project are documented in this file.
 
 ### Highlights
 - Added `page.auto_scale` for explicit `panels` layouts to auto-fit oversized/off-page compositions into the page content area.
+- Added ordered `layout.type: auto` mode to compute panel layouts from a sequence while preserving reading order.
 
 ### Behavior
 - Auto-scale now resolves missing explicit panel heights from source aspect ratios before fitting.
 - Auto-scale uses one global transform (translate-to-origin + uniform scale), preserving relative panel geometry.
 - Auto-scale respects `page.margin` and fits to the content area (`page - 2 * margin`).
+- Auto layout supports bias presets (`one-column`, `two-column`, `best`), a panel-size uniformity preference, and panel prominence hints (`role: main` / `weight`).
+- Auto layout preserves panel aspect ratios and only computes panel cell geometry; rendering still follows each panel's `fit` / `align`.
 
 ### Refactoring and Quality
 - Simplified grid row/column child-resolution logic to a single axis-driven path.
 - Added regression tests for explicit-panel auto-scale behavior, including margin-aware fitting and negative-coordinate normalization.
+- Refactored auto-layout scoring internals with prefix-sum geometry for simpler and faster row optimization.
 - Regenerated JSON schema to include the new `page.auto_scale` field.
 
 ## [0.1.10] - 2026-02-09

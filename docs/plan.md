@@ -42,6 +42,16 @@ This document outlines the roadmap and progress for the `figquilt` project.
 - [x] Resolve missing explicit panel heights from source aspect ratio before fitting
 - [x] Add regression tests for scaling, translation, and margin behavior
 
+## Milestone 7: Ordered Auto Layout (✅ Completed)
+- [x] Add `layout.type: auto` with order-preserving panel placement
+- [x] Add `auto_mode` presets for `best`, `one-column`, and `two-column`
+- [x] Add `size_uniformity` preference for more similar panel areas
+- [x] Add panel prominence hints via `role: main` and optional `weight`
+- [x] Add validation and regression tests for bounds fit, sequence preservation, and prominence behavior
+
 ## Future Milestones
 - [ ] Shared legend space
 - [ ] Inkscape / Illustrator anchor export
+- [ ] Add optional hard constraints for min/max row count in auto layout
+- [ ] Add optional auto-layout debug output (row partitions + scores) for tuning
+- [ ] Consider reusable source-dimension caching across parse/resolve/compose passes

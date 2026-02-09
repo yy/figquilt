@@ -18,6 +18,7 @@ See [CHANGELOG.md](CHANGELOG.md) for full release notes.
 ### Unreleased
 
 - Added `page.auto_scale` to auto-fit oversized/off-page explicit `panels` layouts into the page content area.
+- Added `layout.type: auto` for sequence-preserving automatic panel layout.
 
 ## Philosophy
 
@@ -34,6 +35,7 @@ See [CHANGELOG.md](CHANGELOG.md) for full release notes.
 - **Reproducible**: Layouts are defined in version-controllable text files (YAML).
 - **Language Agnostic**: It is a CLI tool, so it works with outputs from any tool (R, Python, Julia, Inkscape, etc.).
 - **Auto-Fit for Manual Layouts**: Optional `page.auto_scale` preserves panel geometry while fitting explicit layouts to the page.
+- **Auto Layout from Sequence**: `layout.type: auto` builds an ordered layout from panel files, with optional size-similarity and main-panel hints.
 
 ## Installation
 
@@ -217,6 +219,40 @@ layout:
 This creates:
 - Panel A spanning the full width in the top third
 - Panels B and C side-by-side in the bottom two-thirds
+
+### Auto Layout (Sequence-Preserving)
+
+Use `type: auto` to let figquilt compute an ordered layout from a panel sequence:
+
+```yaml
+page:
+  width: 180
+  height: 120
+  margin: 6
+
+layout:
+  type: auto
+  auto_mode: best          # best | one-column | two-column
+  size_uniformity: 0.8     # 0..1, higher favors similar panel sizes
+  main_scale: 2.5          # weight applied to role: main panels
+  gap: 4
+  children:
+    - id: B
+      file: "panels/main_overview.pdf"
+      role: main
+    - id: A
+      file: "panels/detail_a.pdf"
+    - id: C
+      file: "panels/detail_c.pdf"
+      weight: 1.2
+    - id: D
+      file: "panels/detail_d.pdf"
+```
+
+Notes:
+- Child order is preserved in reading order (left-to-right, then top-to-bottom).
+- figquilt keeps panel aspect ratios; it does not non-uniformly distort panel geometry.
+- `role: main` and `weight` provide soft prominence hints when auto-laying out panels.
 
 ### Editor Autocomplete (JSON Schema)
 
