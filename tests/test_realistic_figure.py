@@ -1,4 +1,5 @@
 import pytest
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
@@ -6,6 +7,9 @@ import numpy as np
 import yaml
 from figquilt.compose_pdf import PDFComposer
 from figquilt.parser import parse_layout
+
+def test_matplotlib_backend_is_noninteractive():
+    assert matplotlib.get_backend().lower() == "agg"
 
 @pytest.fixture
 def realistic_assets(tmp_path):
