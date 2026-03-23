@@ -175,13 +175,12 @@ class TestWatchMode:
 class TestCheckMode:
     """Tests for the --check mode functionality."""
 
-    def test_check_mode_valid_layout(self, valid_layout_data, tmp_path, capsys):
-        """--check should print layout info and exit 0 for valid layout."""
+    def test_check_mode_valid_layout_without_output(self, valid_layout_data):
+        """--check should print layout info and exit 0 without requiring output."""
         import subprocess
         import sys
 
         layout_file, _ = valid_layout_data
-        output_file = tmp_path / "output.pdf"
 
         result = subprocess.run(
             [
@@ -190,7 +189,6 @@ class TestCheckMode:
                 "figquilt.cli",
                 "--check",
                 str(layout_file),
-                str(output_file),
             ],
             capture_output=True,
             text=True,
@@ -201,6 +199,27 @@ class TestCheckMode:
         assert "Page size:" in result.stdout
         assert "100" in result.stdout  # Width/height values
         assert "Panels: 1" in result.stdout
+
+    def test_build_mode_missing_output_is_still_an_error(self, valid_layout_data):
+        """Build mode should still require the output positional argument."""
+        import subprocess
+        import sys
+
+        layout_file, _ = valid_layout_data
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "figquilt.cli",
+                str(layout_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 2
+        assert "the following arguments are required: output" in result.stderr
 
     def test_check_mode_invalid_layout(self, tmp_path):
         """--check should exit non-zero for invalid layout."""
