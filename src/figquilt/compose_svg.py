@@ -54,6 +54,8 @@ class SVGComposer(BaseComposer):
 
         try:
             content_rect = self.calculate_content_rect(panel, source_info.aspect_ratio)
+            label_x = content_rect.offset_x
+            label_y = content_rect.offset_y
 
             # Create group for the panel
             g = etree.SubElement(root, "g")
@@ -71,12 +73,14 @@ class SVGComposer(BaseComposer):
                     if panel.height is None
                     else to_pt(panel.height, self.units),
                 )
+                label_x = 0.0
+                label_y = 0.0
 
             # Embed content
             self._embed_content(g, panel, content_rect, source_info.doc[0], clip_id)
 
             # Draw label
-            self._draw_label(g, panel, content_rect, index)
+            self._draw_label(g, panel, label_x, label_y, index)
         finally:
             source_info.doc.close()
 
@@ -140,7 +144,12 @@ class SVGComposer(BaseComposer):
         return f"data:{mime};base64,{b64}"
 
     def _draw_label(
-        self, parent: etree.Element, panel: Panel, content_rect, index: int
+        self,
+        parent: etree.Element,
+        panel: Panel,
+        label_x: float,
+        label_y: float,
+        index: int,
     ) -> None:
         """Draw the label for a panel."""
         text_str = self.get_label_text(panel, index)
@@ -149,9 +158,10 @@ class SVGComposer(BaseComposer):
 
         style = panel.label_style if panel.label_style else self.layout.page.label
 
-        # Offset relative to the content position
-        x = content_rect.offset_x + to_pt(style.offset_x, self.units)
-        y = content_rect.offset_y + to_pt(style.offset_y, self.units)
+        # Offset relative to the label anchor, which is the content rect in
+        # contain mode and the panel cell in cover mode.
+        x = label_x + to_pt(style.offset_x, self.units)
+        y = label_y + to_pt(style.offset_y, self.units)
 
         txt = etree.SubElement(parent, "text")
         txt.text = text_str

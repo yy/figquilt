@@ -1,5 +1,6 @@
 import pytest
 import fitz
+from lxml import etree
 from figquilt.compose_pdf import PDFComposer
 from figquilt.compose_svg import SVGComposer
 from figquilt.parser import parse_layout
@@ -134,3 +135,42 @@ def test_svg_pdf_rasterization_uses_page_dpi(tmp_path, dummy_assets, monkeypatch
     SVGComposer(layout).compose(out_svg)
     assert out_svg.exists()
     assert 123 in seen_dpi
+
+
+def test_svg_cover_mode_keeps_label_inside_panel_cell(tmp_path):
+    """SVG cover-mode labels should anchor to the panel cell, not cropped content."""
+    wide_pdf = tmp_path / "wide.pdf"
+    doc = fitz.open()
+    page = doc.new_page(width=200, height=100)
+    page.draw_rect(page.rect, color=(1, 0, 0), fill=(1, 0, 0))
+    doc.save(str(wide_pdf))
+    doc.close()
+
+    layout_data = {
+        "page": {"width": 100, "height": 100, "units": "pt"},
+        "panels": [
+            {
+                "id": "A",
+                "file": str(wide_pdf),
+                "x": 0,
+                "y": 0,
+                "width": 100,
+                "height": 100,
+                "fit": "cover",
+            }
+        ],
+    }
+    layout_file = tmp_path / "layout_cover_label.yaml"
+    with open(layout_file, "w") as f:
+        yaml.dump(layout_data, f)
+
+    layout = parse_layout(layout_file)
+    out_svg = tmp_path / "cover_label.svg"
+    SVGComposer(layout).compose(out_svg)
+
+    root = etree.fromstring(out_svg.read_bytes())
+    text = root.find(".//{http://www.w3.org/2000/svg}text")
+    assert text is not None
+    assert text.text == "A"
+    assert float(text.get("x")) == pytest.approx(2.0)
+    assert float(text.get("y")) == pytest.approx(2.0)
