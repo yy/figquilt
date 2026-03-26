@@ -190,6 +190,26 @@ def testparse_color_invalid_hex(tmp_path, dummy_pdf):
     assert composer.parse_color("#gggggg") is None
 
 
+def testparse_color_shorthand_hex(tmp_path, dummy_pdf):
+    """Test that three-digit hex colors are parsed correctly."""
+    layout_data = {
+        "page": {"width": 100, "height": 100, "units": "mm"},
+        "panels": [{"id": "A", "file": str(dummy_pdf), "x": 0, "y": 0, "width": 50}],
+    }
+
+    layout_file = tmp_path / "layout_shorthand.yaml"
+    with open(layout_file, "w") as f:
+        yaml.dump(layout_data, f)
+
+    from figquilt.parser import parse_layout
+
+    layout = parse_layout(layout_file)
+    composer = PDFComposer(layout)
+
+    assert composer.parse_color("#fff") == (1.0, 1.0, 1.0)
+    assert composer.parse_color("#0f0") == (0.0, 1.0, 0.0)
+
+
 def testparse_color_named_colors(tmp_path, dummy_pdf):
     """Test that named colors work via PIL ImageColor."""
     layout_data = {

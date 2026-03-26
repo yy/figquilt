@@ -163,6 +163,8 @@ class BaseComposer(ABC):
         """
         if color_str.startswith("#"):
             h = color_str.lstrip("#")
+            if len(h) == 3:
+                h = "".join(ch * 2 for ch in h)
             try:
                 rgb = tuple(int(h[i : i + 2], 16) / 255.0 for i in (0, 2, 4))
                 return rgb  # type: ignore
