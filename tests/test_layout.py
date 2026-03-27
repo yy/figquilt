@@ -54,6 +54,22 @@ def test_invalid_yaml(tmp_path):
         parse_layout(layout_file)
 
 
+def test_empty_yaml_reports_clear_error(tmp_path):
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text("")
+
+    with pytest.raises(LayoutError, match="Layout file is empty"):
+        parse_layout(layout_file)
+
+
+def test_non_mapping_yaml_root_reports_clear_error(tmp_path):
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text("- page\n- panels\n")
+
+    with pytest.raises(LayoutError, match="Layout root must be a mapping/object"):
+        parse_layout(layout_file)
+
+
 def test_pydantic_validation_error(tmp_path):
     data = {"page": "not a dict", "panels": []}
     layout_file = tmp_path / "layout.yaml"
