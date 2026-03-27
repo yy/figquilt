@@ -61,6 +61,13 @@ def parse_layout(layout_path: Path) -> Layout:
     except yaml.YAMLError as e:
         raise LayoutError(f"Failed to parse YAML: {e}")
 
+    if data is None:
+        raise LayoutError("Layout file is empty")
+    if not isinstance(data, dict):
+        raise LayoutError(
+            f"Layout root must be a mapping/object, got {type(data).__name__}"
+        )
+
     try:
         layout = Layout(**data)
     except ValidationError as e:
