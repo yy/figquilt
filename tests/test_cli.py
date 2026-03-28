@@ -309,3 +309,32 @@ def test_auto_label_sequence_continues_after_z():
     assert composer.get_label_text(panel, 25) == "Z"
     assert composer.get_label_text(panel, 26) == "AA"
     assert composer.get_label_text(panel, 27) == "AB"
+
+
+def test_panel_label_style_inherits_unspecified_page_defaults():
+    """Partial panel label_style should inherit unspecified fields from page.label."""
+    from pathlib import Path
+
+    from figquilt.compose_pdf import PDFComposer
+    from figquilt.layout import LabelStyle, Layout, Page, Panel
+
+    panel = Panel(
+        id="A",
+        file=Path("panel.pdf"),
+        x=0,
+        y=0,
+        width=10,
+        label="a",
+        label_style=LabelStyle(font_size_pt=12),
+    )
+    layout = Layout(
+        page=Page(
+            width=100,
+            height=100,
+            label=LabelStyle(enabled=False, uppercase=False),
+        ),
+        panels=[panel],
+    )
+    composer = PDFComposer(layout)
+
+    assert composer.get_label_text(panel, 0) is None

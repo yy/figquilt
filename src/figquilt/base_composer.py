@@ -8,7 +8,7 @@ import fitz
 
 from .errors import FigQuiltError
 from .grid import resolve_layout
-from .layout import Layout, Panel
+from .layout import LabelStyle, Layout, Panel
 from .units import calculate_fit, to_pt
 
 
@@ -117,7 +117,7 @@ class BaseComposer(ABC):
         Returns:
             Label text or None if labels are disabled
         """
-        style = panel.label_style if panel.label_style else self.layout.page.label
+        style = self.get_label_style(panel)
 
         if not style.enabled:
             return None
@@ -133,6 +133,15 @@ class BaseComposer(ABC):
             text = text.upper()
 
         return text
+
+    def get_label_style(self, panel: Panel) -> LabelStyle:
+        """Resolve a panel label style by inheriting unspecified page defaults."""
+        base_style = self.layout.page.label
+        if panel.label_style is None:
+            return base_style
+
+        override = panel.label_style.model_dump(exclude_unset=True)
+        return base_style.model_copy(update=override)
 
     @staticmethod
     def _index_to_label(index: int) -> str:

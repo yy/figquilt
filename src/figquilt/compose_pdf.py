@@ -161,7 +161,7 @@ class PDFComposer(BaseComposer):
         if not text:
             return
 
-        style = panel.label_style if panel.label_style else self.layout.page.label
+        style = self.get_label_style(panel)
 
         # Position: offset relative to top-left of content rect
         # PyMuPDF uses baseline positioning, so add font_size to Y

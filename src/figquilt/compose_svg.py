@@ -156,7 +156,7 @@ class SVGComposer(BaseComposer):
         if not text_str:
             return
 
-        style = panel.label_style if panel.label_style else self.layout.page.label
+        style = self.get_label_style(panel)
 
         # Offset relative to the label anchor, which is the content rect in
         # contain mode and the panel cell in cover mode.
