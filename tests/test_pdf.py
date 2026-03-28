@@ -186,6 +186,9 @@ def testparse_color_invalid_hex(tmp_path, dummy_pdf):
     # Too short hex string
     assert composer.parse_color("#ff") is None
 
+    # Too long hex string should not be silently truncated
+    assert composer.parse_color("#12345678") is None
+
     # Invalid hex characters
     assert composer.parse_color("#gggggg") is None
 
