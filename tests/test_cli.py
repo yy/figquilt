@@ -251,6 +251,30 @@ class TestCheckMode:
         assert result.returncode == 1
         assert "Error" in result.stderr
 
+    def test_check_mode_ignores_output_suffix(self, valid_layout_data, tmp_path):
+        """--check should not require a renderable output suffix."""
+        import subprocess
+        import sys
+
+        layout_file, _ = valid_layout_data
+        output_file = tmp_path / "report.txt"
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "figquilt.cli",
+                "--check",
+                str(layout_file),
+                str(output_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert "Layout parsed successfully" in result.stdout
+
 
 class TestColorParsing:
     """Tests for color parsing in PDFComposer."""

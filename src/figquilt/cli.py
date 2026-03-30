@@ -178,14 +178,6 @@ def main():
 
     args = parser.parse_args()
 
-    # Determine output format
-    suffix = args.output.suffix.lower()
-    fmt = args.format or suffix.lstrip(".")
-
-    if fmt not in ("pdf", "svg", "png"):
-        print(f"Unsupported format: {fmt}", file=sys.stderr)
-        sys.exit(1)
-
     # Check-only mode
     if args.check:
         try:
@@ -200,6 +192,14 @@ def main():
         except FigQuiltError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
+
+    # Determine output format
+    suffix = args.output.suffix.lower()
+    fmt = args.format or suffix.lstrip(".")
+
+    if fmt not in ("pdf", "svg", "png"):
+        print(f"Unsupported format: {fmt}", file=sys.stderr)
+        sys.exit(1)
 
     # Watch mode
     if args.watch:
