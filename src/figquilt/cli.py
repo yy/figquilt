@@ -3,11 +3,65 @@ import sys
 from pathlib import Path
 from typing import Optional, Set, Tuple
 import threading
+from collections.abc import Callable
 
 from .parser import parse_layout
 from .errors import FigQuiltError
-from .layout import Layout
+from .layout import Layout, Panel
 from .grid import resolve_layout
+
+
+def _load_layout_and_panels(layout_path: Path) -> tuple[Layout, list[Panel]]:
+    """Parse a layout file and resolve it to concrete panels."""
+    layout = parse_layout(layout_path)
+    return layout, resolve_layout(layout)
+
+
+def _print_layout_summary(
+    layout_path: Path, layout: Layout, panel_count: int, *, prefix: str
+) -> None:
+    """Print a short summary of the resolved layout."""
+    print(f"{prefix}: {layout_path}")
+    print(f"Page size: {layout.page.width}x{layout.page.height} {layout.page.units}")
+    print(f"Panels: {panel_count}")
+
+
+def _compose_pdf(layout: Layout, output_path: Path) -> None:
+    """Render a layout directly to PDF."""
+    from .compose_pdf import PDFComposer
+
+    PDFComposer(layout).compose(output_path)
+
+
+def _compose_svg(layout: Layout, output_path: Path) -> None:
+    """Render a layout directly to SVG."""
+    from .compose_svg import SVGComposer
+
+    SVGComposer(layout).compose(output_path)
+
+
+def _compose_png(layout: Layout, output_path: Path) -> None:
+    """Render a layout to PNG via an intermediate PDF document."""
+    from .compose_pdf import PDFComposer
+
+    doc = PDFComposer(layout).build()
+    try:
+        page = doc[0]
+        pix = page.get_pixmap(dpi=layout.page.dpi)
+        pix.save(str(output_path))
+    finally:
+        doc.close()
+
+
+def _renderer_for_format(fmt: str) -> Callable[[Layout, Path], None] | None:
+    """Return the renderer for a supported output format."""
+    if fmt == "pdf":
+        return _compose_pdf
+    if fmt == "svg":
+        return _compose_svg
+    if fmt == "png":
+        return _compose_png
+    return None
 
 
 def get_watched_paths(layout_path: Path, layout: Layout) -> Tuple[Set[Path], Set[Path]]:
@@ -35,40 +89,18 @@ def compose_figure(
     Returns True on success, False on error.
     """
     try:
-        layout = parse_layout(layout_path)
-        panels = resolve_layout(layout)
-        if verbose:
-            print(f"Layout parsed: {layout_path}")
-            print(
-                f"Page size: {layout.page.width}x{layout.page.height} {layout.page.units}"
-            )
-            print(f"Panels: {len(panels)}")
-
-        if fmt == "pdf":
-            from .compose_pdf import PDFComposer
-
-            composer = PDFComposer(layout)
-            composer.compose(output_path)
-
-        elif fmt == "svg":
-            from .compose_svg import SVGComposer
-
-            composer = SVGComposer(layout)
-            composer.compose(output_path)
-
-        elif fmt == "png":
-            from .compose_pdf import PDFComposer
-
-            composer = PDFComposer(layout)
-            doc = composer.build()
-            page = doc[0]
-            pix = page.get_pixmap(dpi=layout.page.dpi)
-            pix.save(str(output_path))
-            doc.close()
-
-        else:
+        renderer = _renderer_for_format(fmt)
+        if renderer is None:
             print(f"Unsupported format: {fmt}", file=sys.stderr)
             return False
+
+        layout, panels = _load_layout_and_panels(layout_path)
+        if verbose:
+            _print_layout_summary(
+                layout_path, layout, len(panels), prefix="Layout parsed"
+            )
+
+        renderer(layout, output_path)
 
         return True
 
@@ -181,13 +213,13 @@ def main():
     # Check-only mode
     if args.check:
         try:
-            layout = parse_layout(args.layout)
-            panels = resolve_layout(layout)
-            print(f"Layout parsed successfully: {args.layout}")
-            print(
-                f"Page size: {layout.page.width}x{layout.page.height} {layout.page.units}"
+            layout, panels = _load_layout_and_panels(args.layout)
+            _print_layout_summary(
+                args.layout,
+                layout,
+                len(panels),
+                prefix="Layout parsed successfully",
             )
-            print(f"Panels: {len(panels)}")
             sys.exit(0)
         except FigQuiltError as e:
             print(f"Error: {e}", file=sys.stderr)
