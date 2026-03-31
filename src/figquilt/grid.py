@@ -1,6 +1,7 @@
 """Grid layout resolution: converts layout tree to flat list of positioned panels."""
 
 import math
+from pathlib import Path
 from typing import List
 
 from .images import get_image_size
@@ -86,7 +87,9 @@ def _resolve_panel_height(panel: Panel) -> Panel:
     if panel.height is not None:
         return panel
 
-    src_w, src_h = get_image_size(panel.file)
+    src_w, src_h = _get_image_size_for_layout(
+        panel.id, panel.file, context="auto-scaling"
+    )
     if src_w <= 0 or src_h <= 0:
         raise LayoutError(
             f"Panel '{panel.id}' has non-positive source size for auto-scaling"
@@ -192,12 +195,26 @@ def _leaf_width_over_height(
         raise LayoutError(
             f"Auto layout child at {'.'.join((*path, f'children[{index}]'))} must be a leaf panel"
         )
-    src_w, src_h = get_image_size(node.file)
+    src_w, src_h = _get_image_size_for_layout(
+        node.id, node.file, context="auto layout"
+    )
     if src_w <= 0 or src_h <= 0:
         raise LayoutError(
             f"Panel '{node.id}' has non-positive source size for auto layout"
         )
     return src_w / src_h
+
+
+def _get_image_size_for_layout(
+    panel_id: str, path: Path, *, context: str
+) -> tuple[float, float]:
+    """Resolve a panel source size and normalize loader failures to LayoutError."""
+    try:
+        return get_image_size(path)
+    except ValueError as exc:
+        raise LayoutError(
+            f"Could not determine size of panel '{panel_id}' for {context}: {path}"
+        ) from exc
 
 
 def _leaf_weight(node: LayoutNode, main_scale: float) -> float:

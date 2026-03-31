@@ -275,6 +275,87 @@ class TestCheckMode:
         assert result.returncode == 0
         assert "Layout parsed successfully" in result.stdout
 
+    def test_check_mode_reports_unreadable_auto_scale_asset(self, tmp_path):
+        """--check should report unreadable auto-scale assets without a traceback."""
+        import subprocess
+        import sys
+
+        asset_file = tmp_path / "bad.bin"
+        asset_file.write_bytes(b"not an image")
+        layout_file = tmp_path / "layout.yaml"
+        layout_file.write_text(
+            yaml.dump(
+                {
+                    "page": {"width": 100, "height": 100, "auto_scale": True},
+                    "panels": [
+                        {
+                            "id": "A",
+                            "file": str(asset_file.name),
+                            "x": 0,
+                            "y": 0,
+                            "width": 50,
+                        }
+                    ],
+                }
+            )
+        )
+        output_file = tmp_path / "output.pdf"
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "figquilt.cli",
+                "--check",
+                str(layout_file),
+                str(output_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 1
+        assert "Error: Could not determine size of panel 'A' for auto-scaling" in result.stderr
+        assert "Traceback" not in result.stderr
+
+    def test_check_mode_reports_unreadable_auto_layout_asset(self, tmp_path):
+        """--check should report unreadable auto-layout assets without a traceback."""
+        import subprocess
+        import sys
+
+        asset_file = tmp_path / "bad.bin"
+        asset_file.write_bytes(b"not an image")
+        layout_file = tmp_path / "layout.yaml"
+        layout_file.write_text(
+            yaml.dump(
+                {
+                    "page": {"width": 100, "height": 100},
+                    "layout": {
+                        "type": "auto",
+                        "children": [{"id": "A", "file": str(asset_file.name)}],
+                    },
+                }
+            )
+        )
+        output_file = tmp_path / "output.pdf"
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "figquilt.cli",
+                "--check",
+                str(layout_file),
+                str(output_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 1
+        assert "Error: Could not determine size of panel 'A' for auto layout" in result.stderr
+        assert "Traceback" not in result.stderr
+
 
 class TestColorParsing:
     """Tests for color parsing in PDFComposer."""
