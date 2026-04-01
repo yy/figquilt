@@ -5,7 +5,7 @@ from pathlib import Path
 import fitz
 
 from .base_composer import BaseComposer
-from .layout import Layout, Panel
+from .layout import Panel
 from .units import alignment_factors, to_pt
 
 # PyMuPDF font name mappings
@@ -14,9 +14,6 @@ _FONT_BOLD = "HeBo"  # Helvetica-Bold
 
 
 class PDFComposer(BaseComposer):
-    def __init__(self, layout: Layout):
-        super().__init__(layout)
-
     def compose(self, output_path: Path) -> None:
         doc = self.build()
         doc.save(str(output_path))

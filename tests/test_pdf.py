@@ -1,5 +1,7 @@
 import pytest
 import fitz
+from pathlib import Path
+from unittest.mock import patch
 from figquilt.compose_pdf import PDFComposer
 import yaml
 
@@ -138,6 +140,28 @@ def test_compose_pdf_with_margin(tmp_path, dummy_pdf):
     doc = fitz.open(output_pdf)
     # Extract images/forms to check position - or just verify doc renders
     doc.close()
+
+
+def test_pdf_composer_uses_pre_resolved_panels():
+    """Providing pre-resolved panels should bypass another layout resolution pass."""
+    from figquilt.layout import Layout, Page, Panel
+
+    panels = [
+        Panel(
+            id="A",
+            file=Path("dummy.pdf"),
+            x=0,
+            y=0,
+            width=50,
+        )
+    ]
+    layout = Layout(page=Page(width=100, height=100, units="mm"), panels=panels)
+
+    composer = PDFComposer(layout, panels=panels)
+    with patch("figquilt.base_composer.resolve_layout") as mock_resolve:
+        assert composer.get_panels() is panels
+
+    mock_resolve.assert_not_called()
 
 
 def testparse_color_valid_hex(tmp_path, dummy_pdf):

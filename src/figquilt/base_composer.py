@@ -33,12 +33,13 @@ class ContentRect(NamedTuple):
 class BaseComposer(ABC):
     """Base class for PDF and SVG composers with shared initialization and helpers."""
 
-    def __init__(self, layout: Layout):
+    def __init__(self, layout: Layout, panels: list[Panel] | None = None):
         self.layout = layout
         self.units = layout.page.units
         self.width_pt = to_pt(layout.page.width, self.units)
         self.height_pt = to_pt(layout.page.height, self.units)
         self.margin_pt = to_pt(layout.page.margin, self.units)
+        self._panels = panels
 
     @abstractmethod
     def compose(self, output_path: Path) -> None:
@@ -47,7 +48,9 @@ class BaseComposer(ABC):
 
     def get_panels(self) -> list[Panel]:
         """Resolve and return the list of panels from the layout."""
-        return resolve_layout(self.layout)
+        if self._panels is None:
+            self._panels = resolve_layout(self.layout)
+        return self._panels
 
     def open_source(self, panel: Panel) -> SourceInfo:
         """

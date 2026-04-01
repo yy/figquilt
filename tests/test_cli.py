@@ -3,8 +3,10 @@ from unittest.mock import patch, MagicMock
 import yaml
 import threading
 from typing import List, Callable
+from pathlib import Path
 
 from figquilt.cli import compose_figure, run_watch_mode
+from figquilt.layout import Layout, Page, Panel
 
 
 @pytest.fixture
@@ -73,6 +75,21 @@ def run_watch_with_mock_changes(
 class TestComposeFigure:
     """Tests for the compose_figure helper function."""
 
+    @staticmethod
+    def _make_layout() -> Layout:
+        return Layout(
+            page=Page(width=100, height=100, units="mm"),
+            panels=[
+                Panel(
+                    id="A",
+                    file=Path("panel.pdf"),
+                    x=0,
+                    y=0,
+                    width=50,
+                )
+            ],
+        )
+
     def test_compose_figure_returns_true_on_success(self, valid_layout_data, tmp_path):
         """compose_figure should return True when composition succeeds."""
         layout_file, _ = valid_layout_data
@@ -86,6 +103,57 @@ class TestComposeFigure:
 
             assert result is True
             mock_instance.compose.assert_called_once_with(output_file)
+
+    def test_compose_figure_skips_eager_resolution_without_verbose(self, tmp_path):
+        """Non-verbose builds should leave layout resolution to the renderer."""
+        layout = self._make_layout()
+        output_file = tmp_path / "output.pdf"
+        renderer_calls = []
+
+        def fake_renderer(layout_arg, output_arg, panels_arg):
+            renderer_calls.append((layout_arg, output_arg, panels_arg))
+
+        with patch("figquilt.cli.parse_layout", return_value=layout), patch(
+            "figquilt.cli.resolve_layout"
+        ) as mock_resolve, patch(
+            "figquilt.cli._renderer_for_format", return_value=fake_renderer
+        ):
+            result = compose_figure(
+                tmp_path / "layout.yaml",
+                output_file,
+                fmt="pdf",
+                verbose=False,
+            )
+
+        assert result is True
+        mock_resolve.assert_not_called()
+        assert renderer_calls == [(layout, output_file, None)]
+
+    def test_compose_figure_reuses_resolved_panels_for_verbose_output(self, tmp_path):
+        """Verbose builds should reuse the already-resolved panels during rendering."""
+        layout = self._make_layout()
+        resolved_panels = list(layout.panels or [])
+        output_file = tmp_path / "output.pdf"
+        renderer_calls = []
+
+        def fake_renderer(layout_arg, output_arg, panels_arg):
+            renderer_calls.append((layout_arg, output_arg, panels_arg))
+
+        with patch("figquilt.cli.parse_layout", return_value=layout), patch(
+            "figquilt.cli.resolve_layout", return_value=resolved_panels
+        ) as mock_resolve, patch(
+            "figquilt.cli._renderer_for_format", return_value=fake_renderer
+        ):
+            result = compose_figure(
+                tmp_path / "layout.yaml",
+                output_file,
+                fmt="pdf",
+                verbose=True,
+            )
+
+        assert result is True
+        mock_resolve.assert_called_once_with(layout)
+        assert renderer_calls == [(layout, output_file, resolved_panels)]
 
     def test_compose_figure_returns_false_on_error(self, tmp_path):
         """compose_figure should return False and print error on failure."""
@@ -170,6 +238,39 @@ class TestWatchMode:
 
         # Should have been called multiple times despite first failure
         assert len(call_count) >= 2
+
+    def test_watch_mode_tracks_unreadable_auto_layout_asset_changes(
+        self, tmp_path
+    ):
+        """Watch mode should rebuild when a referenced unreadable asset changes."""
+        asset_file = tmp_path / "bad.bin"
+        asset_file.write_bytes(b"not an image")
+        layout_file = tmp_path / "layout.yaml"
+        layout_file.write_text(
+            yaml.dump(
+                {
+                    "page": {"width": 100, "height": 100},
+                    "layout": {
+                        "type": "auto",
+                        "children": [{"id": "A", "file": str(asset_file.name)}],
+                    },
+                }
+            )
+        )
+        output_file = tmp_path / "output.pdf"
+
+        rebuild_count = []
+
+        def mock_compose(*args, **kwargs):
+            rebuild_count.append(1)
+            return len(rebuild_count) > 1
+
+        run_watch_with_mock_changes(
+            layout_file, output_file, [asset_file], mock_compose
+        )
+
+        # Initial build + rebuild after the asset changes.
+        assert len(rebuild_count) >= 2
 
 
 class TestCheckMode:

@@ -7,14 +7,10 @@ from collections.abc import Callable
 
 from .parser import parse_layout
 from .errors import FigQuiltError
-from .layout import Layout, Panel
+from .layout import Layout, LayoutNode, Panel
 from .grid import resolve_layout
 
-
-def _load_layout_and_panels(layout_path: Path) -> tuple[Layout, list[Panel]]:
-    """Parse a layout file and resolve it to concrete panels."""
-    layout = parse_layout(layout_path)
-    return layout, resolve_layout(layout)
+type Renderer = Callable[[Layout, Path, list[Panel] | None], None]
 
 
 def _print_layout_summary(
@@ -26,25 +22,31 @@ def _print_layout_summary(
     print(f"Panels: {panel_count}")
 
 
-def _compose_pdf(layout: Layout, output_path: Path) -> None:
+def _compose_pdf(
+    layout: Layout, output_path: Path, panels: list[Panel] | None = None
+) -> None:
     """Render a layout directly to PDF."""
     from .compose_pdf import PDFComposer
 
-    PDFComposer(layout).compose(output_path)
+    PDFComposer(layout, panels=panels).compose(output_path)
 
 
-def _compose_svg(layout: Layout, output_path: Path) -> None:
+def _compose_svg(
+    layout: Layout, output_path: Path, panels: list[Panel] | None = None
+) -> None:
     """Render a layout directly to SVG."""
     from .compose_svg import SVGComposer
 
-    SVGComposer(layout).compose(output_path)
+    SVGComposer(layout, panels=panels).compose(output_path)
 
 
-def _compose_png(layout: Layout, output_path: Path) -> None:
+def _compose_png(
+    layout: Layout, output_path: Path, panels: list[Panel] | None = None
+) -> None:
     """Render a layout to PNG via an intermediate PDF document."""
     from .compose_pdf import PDFComposer
 
-    doc = PDFComposer(layout).build()
+    doc = PDFComposer(layout, panels=panels).build()
     try:
         page = doc[0]
         pix = page.get_pixmap(dpi=layout.page.dpi)
@@ -53,7 +55,7 @@ def _compose_png(layout: Layout, output_path: Path) -> None:
         doc.close()
 
 
-def _renderer_for_format(fmt: str) -> Callable[[Layout, Path], None] | None:
+def _renderer_for_format(fmt: str) -> Renderer | None:
     """Return the renderer for a supported output format."""
     if fmt == "pdf":
         return _compose_pdf
@@ -62,6 +64,26 @@ def _renderer_for_format(fmt: str) -> Callable[[Layout, Path], None] | None:
     if fmt == "png":
         return _compose_png
     return None
+
+
+def _iter_referenced_asset_paths(layout: Layout):
+    """Yield asset paths referenced directly by the parsed layout."""
+    if layout.panels is not None:
+        for panel in layout.panels:
+            yield panel.file.resolve()
+        return
+
+    def walk(node: LayoutNode | None):
+        if node is None:
+            return
+        if node.is_container():
+            for child in node.children or []:
+                yield from walk(child)
+            return
+        if node.file is not None:
+            yield node.file.resolve()
+
+    yield from walk(layout.layout)
 
 
 def get_watched_paths(layout_path: Path, layout: Layout) -> Tuple[Set[Path], Set[Path]]:
@@ -73,9 +95,12 @@ def get_watched_paths(layout_path: Path, layout: Layout) -> Tuple[Set[Path], Set
     """
     layout_path = layout_path.resolve()
     files = {layout_path}
-    panels = resolve_layout(layout)
-    for panel in panels:
-        files.add(panel.file.resolve())
+    try:
+        panels = resolve_layout(layout)
+        for panel in panels:
+            files.add(panel.file.resolve())
+    except FigQuiltError:
+        files.update(_iter_referenced_asset_paths(layout))
     dirs = {f.parent for f in files}
     return files, dirs
 
@@ -94,13 +119,15 @@ def compose_figure(
             print(f"Unsupported format: {fmt}", file=sys.stderr)
             return False
 
-        layout, panels = _load_layout_and_panels(layout_path)
+        layout = parse_layout(layout_path)
+        panels: list[Panel] | None = None
         if verbose:
+            panels = resolve_layout(layout)
             _print_layout_summary(
                 layout_path, layout, len(panels), prefix="Layout parsed"
             )
 
-        renderer(layout, output_path)
+        renderer(layout, output_path, panels)
 
         return True
 
@@ -213,7 +240,8 @@ def main():
     # Check-only mode
     if args.check:
         try:
-            layout, panels = _load_layout_and_panels(args.layout)
+            layout = parse_layout(args.layout)
+            panels = resolve_layout(layout)
             _print_layout_summary(
                 args.layout,
                 layout,

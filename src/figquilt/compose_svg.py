@@ -6,14 +6,11 @@ from pathlib import Path
 from lxml import etree
 
 from .base_composer import BaseComposer
-from .layout import Layout, Panel
+from .layout import Panel
 from .units import to_pt
 
 
 class SVGComposer(BaseComposer):
-    def __init__(self, layout: Layout):
-        super().__init__(layout)
-
     def compose(self, output_path: Path) -> None:
         nsmap = {
             None: "http://www.w3.org/2000/svg",
