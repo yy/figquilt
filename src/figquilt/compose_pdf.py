@@ -67,14 +67,12 @@ class PDFComposer(BaseComposer):
 
             if panel.fit == "cover":
                 self._embed_cover(page, cell_rect, source_info.doc, panel)
-                label_rect = cell_rect
             else:
                 self._embed_content(page, content_draw_rect, source_info.doc, panel)
-                label_rect = content_draw_rect
         finally:
             source_info.doc.close()
 
-        self._draw_label(page, panel, label_rect, index)
+        self._draw_label(page, panel, cell_rect, index)
 
     def _embed_content(
         self, page: fitz.Page, rect: fitz.Rect, src_doc: fitz.Document, panel: Panel

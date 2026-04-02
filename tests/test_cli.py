@@ -182,6 +182,44 @@ class TestWatchMode:
         assert panel_file.resolve() in watched_files
         assert layout_file.parent in watched_dirs
 
+    def test_get_watched_paths_includes_grid_layout_assets(self, tmp_path):
+        """Watch mode should include nested grid-layout asset files."""
+        from figquilt.cli import get_watched_paths
+        from figquilt.parser import parse_layout
+
+        panel_a = tmp_path / "a.pdf"
+        panel_b = tmp_path / "b.pdf"
+        panel_a.write_bytes(b"%PDF-1.4 a")
+        panel_b.write_bytes(b"%PDF-1.4 b")
+        layout_file = tmp_path / "layout.yaml"
+        layout_file.write_text(
+            yaml.dump(
+                {
+                    "page": {"width": 180, "height": 100},
+                    "layout": {
+                        "type": "row",
+                        "children": [
+                            {"id": "A", "file": panel_a.name},
+                            {
+                                "type": "col",
+                                "children": [
+                                    {"id": "B", "file": panel_b.name},
+                                ],
+                            },
+                        ],
+                    },
+                }
+            )
+        )
+
+        layout = parse_layout(layout_file)
+        watched_files, watched_dirs = get_watched_paths(layout_file, layout)
+
+        assert layout_file.resolve() in watched_files
+        assert panel_a.resolve() in watched_files
+        assert panel_b.resolve() in watched_files
+        assert layout_file.parent in watched_dirs
+
     def test_watch_mode_rebuilds_on_layout_change(self, valid_layout_data, tmp_path):
         """Watch mode should rebuild when the layout file changes."""
         layout_file, _ = valid_layout_data

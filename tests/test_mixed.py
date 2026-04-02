@@ -174,3 +174,96 @@ def test_svg_cover_mode_keeps_label_inside_panel_cell(tmp_path):
     assert text.text == "A"
     assert float(text.get("x")) == pytest.approx(2.0)
     assert float(text.get("y")) == pytest.approx(2.0)
+
+
+def test_svg_contain_mode_keeps_label_inside_panel_cell(tmp_path):
+    """SVG contain-mode labels should anchor to the panel cell, not letterboxed content."""
+    wide_pdf = tmp_path / "wide.pdf"
+    doc = fitz.open()
+    page = doc.new_page(width=200, height=100)
+    page.draw_rect(page.rect, color=(1, 0, 0), fill=(1, 0, 0))
+    doc.save(str(wide_pdf))
+    doc.close()
+
+    layout_data = {
+        "page": {"width": 100, "height": 100, "units": "pt"},
+        "panels": [
+            {
+                "id": "A",
+                "file": str(wide_pdf),
+                "x": 0,
+                "y": 0,
+                "width": 100,
+                "height": 100,
+                "fit": "contain",
+                "align": "center",
+            }
+        ],
+    }
+    layout_file = tmp_path / "layout_contain_label.yaml"
+    with open(layout_file, "w") as f:
+        yaml.dump(layout_data, f)
+
+    layout = parse_layout(layout_file)
+    out_svg = tmp_path / "contain_label.svg"
+    SVGComposer(layout).compose(out_svg)
+
+    root = etree.fromstring(out_svg.read_bytes())
+    text = root.find(".//{http://www.w3.org/2000/svg}text")
+    assert text is not None
+    assert text.text == "A"
+    assert float(text.get("x")) == pytest.approx(2.0)
+    assert float(text.get("y")) == pytest.approx(2.0)
+
+
+def test_pdf_contain_mode_keeps_label_inside_panel_cell(tmp_path):
+    """PDF contain-mode labels should anchor to the panel cell, not letterboxed content."""
+    wide_pdf = tmp_path / "wide.pdf"
+    doc = fitz.open()
+    page = doc.new_page(width=200, height=100)
+    page.draw_rect(page.rect, color=(1, 0, 0), fill=(1, 0, 0))
+    doc.save(str(wide_pdf))
+    doc.close()
+
+    layout_data = {
+        "page": {"width": 100, "height": 100, "units": "pt"},
+        "panels": [
+            {
+                "id": "A",
+                "file": str(wide_pdf),
+                "x": 0,
+                "y": 0,
+                "width": 100,
+                "height": 100,
+                "fit": "contain",
+                "align": "center",
+            }
+        ],
+    }
+    layout_file = tmp_path / "layout_contain_label.yaml"
+    with open(layout_file, "w") as f:
+        yaml.dump(layout_data, f)
+
+    layout = parse_layout(layout_file)
+    out_pdf = tmp_path / "contain_label.pdf"
+    PDFComposer(layout).compose(out_pdf)
+
+    doc = fitz.open(out_pdf)
+    try:
+        blocks = doc[0].get_text("dict")["blocks"]
+        label_bbox = None
+        for block in blocks:
+            for line in block.get("lines", []):
+                for span in line.get("spans", []):
+                    if span.get("text") == "A":
+                        label_bbox = span["bbox"]
+                        break
+                if label_bbox is not None:
+                    break
+            if label_bbox is not None:
+                break
+        assert label_bbox is not None
+        assert label_bbox[0] == pytest.approx(2.0, abs=0.1)
+        assert label_bbox[1] < 10.0
+    finally:
+        doc.close()

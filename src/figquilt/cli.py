@@ -7,7 +7,7 @@ from collections.abc import Callable
 
 from .parser import parse_layout
 from .errors import FigQuiltError
-from .layout import Layout, LayoutNode, Panel
+from .layout import Layout, Panel, iter_layout_leaves
 from .grid import resolve_layout
 
 type Renderer = Callable[[Layout, Path, list[Panel] | None], None]
@@ -73,17 +73,9 @@ def _iter_referenced_asset_paths(layout: Layout):
             yield panel.file.resolve()
         return
 
-    def walk(node: LayoutNode | None):
-        if node is None:
-            return
-        if node.is_container():
-            for child in node.children or []:
-                yield from walk(child)
-            return
-        if node.file is not None:
-            yield node.file.resolve()
-
-    yield from walk(layout.layout)
+    for leaf in iter_layout_leaves(layout.layout):
+        if leaf.file is not None:
+            yield leaf.file.resolve()
 
 
 def get_watched_paths(layout_path: Path, layout: Layout) -> Tuple[Set[Path], Set[Path]]:

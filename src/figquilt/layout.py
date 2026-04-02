@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections.abc import Iterator
 from typing import Literal, Optional, List
 from pathlib import Path
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -209,22 +210,30 @@ class Layout(BaseModel):
         if self.panels is not None and self.layout is not None:
             raise ValueError("Cannot specify both 'panels' and 'layout'")
 
-        ids = (
-            [panel.id for panel in self.panels]
-            if self.panels is not None
-            else list(_iter_layout_ids(self.layout))
-        )
+        ids = list(iter_panel_ids(self))
         if len(ids) != len(set(ids)):
             raise ValueError("Panel IDs must be unique")
         return self
 
 
-def _iter_layout_ids(node: Optional[LayoutNode]):
+def iter_layout_leaves(node: Optional[LayoutNode]) -> Iterator[LayoutNode]:
+    """Yield leaf nodes from a layout tree in declaration order."""
     if node is None:
         return
     if node.is_container():
         for child in node.children or []:
-            yield from _iter_layout_ids(child)
+            yield from iter_layout_leaves(child)
         return
-    if node.id is not None:
-        yield node.id
+    yield node
+
+
+def iter_panel_ids(layout: Layout) -> Iterator[str]:
+    """Yield panel IDs from either explicit-panel or grid layout mode."""
+    if layout.panels is not None:
+        for panel in layout.panels:
+            yield panel.id
+        return
+
+    for leaf in iter_layout_leaves(layout.layout):
+        if leaf.id is not None:
+            yield leaf.id

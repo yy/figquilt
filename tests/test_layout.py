@@ -186,6 +186,38 @@ layout:
     assert len(second.children) == 2
 
 
+def test_nested_grid_layout_missing_asset_raises_error(tmp_path):
+    """Nested grid layouts should validate every leaf asset, not just top-level ones."""
+    for name in ["header.pdf", "left.pdf"]:
+        (tmp_path / name).touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text("""\
+page:
+  width: 180
+  height: 200
+  units: mm
+
+layout:
+  type: col
+  ratios: [1, 2]
+  children:
+    - id: A
+      file: header.pdf
+    - type: row
+      ratios: [1, 1]
+      gap: 5
+      children:
+        - id: B
+          file: left.pdf
+        - id: C
+          file: right.pdf
+""")
+
+    with pytest.raises(AssetMissingError, match="panel 'C'"):
+        parse_layout(layout_file)
+
+
 def test_layout_must_have_panels_or_layout(tmp_path):
     """Layouts without panels or layout should fail."""
     layout_file = tmp_path / "layout.yaml"

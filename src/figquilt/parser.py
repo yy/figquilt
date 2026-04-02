@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 import yaml
 from pydantic import ValidationError
-from .layout import Layout
+from .layout import Layout, iter_layout_leaves
 from .errors import LayoutError, AssetMissingError
 
 
@@ -88,32 +88,21 @@ def parse_layout(layout_path: Path) -> Layout:
     # Validate assets exist relative to the layout file
     base_dir = layout_path.parent
 
-    if layout.panels:
-        # Legacy mode: iterate over explicit panels
+    if layout.panels is not None:
         for panel in layout.panels:
-            if not panel.file.is_absolute():
-                panel.file = base_dir / panel.file
-            if not panel.file.exists():
-                raise AssetMissingError(
-                    f"Asset for panel '{panel.id}' not found: {panel.file}"
-                )
-    elif layout.layout:
-        # Grid mode: recursively validate assets in the layout tree
-        _validate_layout_assets(layout.layout, base_dir)
+            panel.file = _resolve_asset_path(panel.id, panel.file, base_dir)
+    elif layout.layout is not None:
+        for leaf in iter_layout_leaves(layout.layout):
+            if leaf.id is None or leaf.file is None:
+                raise LayoutError("Leaf node must define both 'id' and 'file'")
+            leaf.file = _resolve_asset_path(leaf.id, leaf.file, base_dir)
 
     return layout
 
 
-def _validate_layout_assets(node, base_dir: Path) -> None:
-    """Recursively validate and resolve asset paths in a layout tree."""
-    if node.is_container():
-        for child in node.children:
-            _validate_layout_assets(child, base_dir)
-    else:
-        # Leaf node: validate file exists
-        if not node.file.is_absolute():
-            node.file = base_dir / node.file
-        if not node.file.exists():
-            raise AssetMissingError(
-                f"Asset for panel '{node.id}' not found: {node.file}"
-            )
+def _resolve_asset_path(panel_id: str, file_path: Path, base_dir: Path) -> Path:
+    """Resolve an asset path relative to the layout file and verify it exists."""
+    resolved = file_path if file_path.is_absolute() else base_dir / file_path
+    if not resolved.exists():
+        raise AssetMissingError(f"Asset for panel '{panel_id}' not found: {resolved}")
+    return resolved

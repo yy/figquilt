@@ -51,8 +51,8 @@ class SVGComposer(BaseComposer):
 
         try:
             content_rect = self.calculate_content_rect(panel, source_info.aspect_ratio)
-            label_x = content_rect.offset_x
-            label_y = content_rect.offset_y
+            label_x = 0.0
+            label_y = 0.0
 
             # Create group for the panel
             g = etree.SubElement(root, "g")
@@ -70,8 +70,6 @@ class SVGComposer(BaseComposer):
                     if panel.height is None
                     else to_pt(panel.height, self.units),
                 )
-                label_x = 0.0
-                label_y = 0.0
 
             # Embed content
             self._embed_content(g, panel, content_rect, source_info.doc[0], clip_id)
