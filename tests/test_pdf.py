@@ -142,6 +142,53 @@ def test_compose_pdf_with_margin(tmp_path, dummy_pdf):
     doc.close()
 
 
+def test_pdf_label_style_font_family_is_applied(tmp_path, dummy_pdf):
+    """PDF labels should honor supported font_family values."""
+    layout_data = {
+        "page": {"width": 100, "height": 100, "units": "pt"},
+        "panels": [
+            {
+                "id": "A",
+                "file": str(dummy_pdf),
+                "x": 0,
+                "y": 0,
+                "width": 50,
+                "label_style": {"font_family": "Courier", "bold": False},
+            }
+        ],
+    }
+
+    layout_file = tmp_path / "layout_label_font.yaml"
+    with open(layout_file, "w") as f:
+        yaml.dump(layout_data, f)
+
+    from figquilt.parser import parse_layout
+
+    layout = parse_layout(layout_file)
+
+    output_pdf = tmp_path / "output_label_font.pdf"
+    PDFComposer(layout).compose(output_pdf)
+
+    doc = fitz.open(output_pdf)
+    try:
+        blocks = doc[0].get_text("dict")["blocks"]
+        label_font = None
+        for block in blocks:
+            for line in block.get("lines", []):
+                for span in line.get("spans", []):
+                    if span.get("text") == "A":
+                        label_font = span.get("font")
+                        break
+                if label_font is not None:
+                    break
+            if label_font is not None:
+                break
+
+        assert label_font == "Courier"
+    finally:
+        doc.close()
+
+
 def test_pdf_composer_uses_pre_resolved_panels():
     """Providing pre-resolved panels should bypass another layout resolution pass."""
     from figquilt.layout import Layout, Page, Panel

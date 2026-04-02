@@ -11,6 +11,15 @@ from .units import alignment_factors, to_pt
 # PyMuPDF font name mappings
 _FONT_REGULAR = "helv"  # Helvetica
 _FONT_BOLD = "HeBo"  # Helvetica-Bold
+_FONT_FAMILY_VARIANTS = {
+    "helvetica": ("Helvetica", "Helvetica-Bold"),
+    "helv": ("Helvetica", "Helvetica-Bold"),
+    "courier": ("Courier", "Courier-Bold"),
+    "cour": ("Courier", "Courier-Bold"),
+    "times": ("Times-Roman", "Times-Bold"),
+    "times-roman": ("Times-Roman", "Times-Bold"),
+    "tiro": ("Times-Roman", "Times-Bold"),
+}
 
 
 class PDFComposer(BaseComposer):
@@ -163,8 +172,22 @@ class PDFComposer(BaseComposer):
         pos_x = rect.x0 + to_pt(style.offset_x, self.units)
         pos_y = rect.y0 + to_pt(style.offset_y, self.units) + style.font_size_pt
 
-        fontname = _FONT_BOLD if style.bold else _FONT_REGULAR
+        fontname = self._resolve_font_name(style.font_family, bold=style.bold)
 
         page.insert_text(
             (pos_x, pos_y), text, fontsize=style.font_size_pt, fontname=fontname
         )
+
+    @staticmethod
+    def _resolve_font_name(font_family: str, *, bold: bool) -> str:
+        """Map configured label font families to PyMuPDF base-14 font names."""
+        normalized = font_family.strip().lower()
+        variants = _FONT_FAMILY_VARIANTS.get(normalized)
+        if variants is not None:
+            return variants[1] if bold else variants[0]
+
+        exact_match = fitz.Base14_fontdict.get(normalized)
+        if exact_match is not None:
+            return exact_match
+
+        return _FONT_BOLD if bold else _FONT_REGULAR
