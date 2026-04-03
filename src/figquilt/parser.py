@@ -50,8 +50,14 @@ def _get_line_for_path(line_map: dict[tuple, int], path_str: str) -> int | None:
     return line_map.get(tuple(parts))
 
 
-def parse_layout(layout_path: Path) -> Layout:
-    """Parses a YAML layout file and returns a Layout object."""
+def parse_layout(layout_path: Path, *, validate_assets: bool = True) -> Layout:
+    """Parse a layout file into a Layout model.
+
+    Args:
+        layout_path: Path to the YAML/JSON layout file.
+        validate_assets: When True, referenced asset files must already exist.
+            Watch mode uses False so it can still track missing assets.
+    """
     if not layout_path.exists():
         raise LayoutError(f"Layout file not found: {layout_path}")
 
@@ -90,19 +96,35 @@ def parse_layout(layout_path: Path) -> Layout:
 
     if layout.panels is not None:
         for panel in layout.panels:
-            panel.file = _resolve_asset_path(panel.id, panel.file, base_dir)
+            panel.file = _resolve_asset_path(
+                panel.id,
+                panel.file,
+                base_dir,
+                validate_exists=validate_assets,
+            )
     elif layout.layout is not None:
         for leaf in iter_layout_leaves(layout.layout):
             if leaf.id is None or leaf.file is None:
                 raise LayoutError("Leaf node must define both 'id' and 'file'")
-            leaf.file = _resolve_asset_path(leaf.id, leaf.file, base_dir)
+            leaf.file = _resolve_asset_path(
+                leaf.id,
+                leaf.file,
+                base_dir,
+                validate_exists=validate_assets,
+            )
 
     return layout
 
 
-def _resolve_asset_path(panel_id: str, file_path: Path, base_dir: Path) -> Path:
-    """Resolve an asset path relative to the layout file and verify it exists."""
+def _resolve_asset_path(
+    panel_id: str,
+    file_path: Path,
+    base_dir: Path,
+    *,
+    validate_exists: bool = True,
+) -> Path:
+    """Resolve an asset path relative to the layout file."""
     resolved = file_path if file_path.is_absolute() else base_dir / file_path
-    if not resolved.exists():
+    if validate_exists and not resolved.exists():
         raise AssetMissingError(f"Asset for panel '{panel_id}' not found: {resolved}")
     return resolved

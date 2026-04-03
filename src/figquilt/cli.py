@@ -78,6 +78,17 @@ def _iter_referenced_asset_paths(layout: Layout):
             yield leaf.file.resolve()
 
 
+def _nearest_existing_dir(path: Path) -> Path:
+    """Return the closest existing directory for a watched file path."""
+    candidate = path
+    while not candidate.exists():
+        parent = candidate.parent
+        if parent == candidate:
+            break
+        candidate = parent
+    return candidate if candidate.is_dir() else candidate.parent
+
+
 def get_watched_paths(layout_path: Path, layout: Layout) -> Tuple[Set[Path], Set[Path]]:
     """
     Return the set of files and directories to watch.
@@ -93,7 +104,7 @@ def get_watched_paths(layout_path: Path, layout: Layout) -> Tuple[Set[Path], Set
             files.add(panel.file.resolve())
     except FigQuiltError:
         files.update(_iter_referenced_asset_paths(layout))
-    dirs = {f.parent for f in files}
+    dirs = {_nearest_existing_dir(f.parent) for f in files}
     return files, dirs
 
 
@@ -160,7 +171,7 @@ def run_watch_mode(
 
     # Get initial set of watched files and directories
     try:
-        layout = parse_layout(layout_path)
+        layout = parse_layout(layout_path, validate_assets=False)
         watched_files, watch_dirs = get_watched_paths(layout_path, layout)
     except FigQuiltError:
         # If layout is invalid, just watch the layout file itself

@@ -220,6 +220,49 @@ class TestWatchMode:
         assert panel_b.resolve() in watched_files
         assert layout_file.parent in watched_dirs
 
+    def test_watch_mode_uses_existing_ancestor_for_missing_asset_dirs(self, tmp_path):
+        """Watch mode should avoid watching non-existent asset directories."""
+        missing_asset = tmp_path / "assets" / "missing.pdf"
+        layout_file = tmp_path / "layout.yaml"
+        layout_file.write_text(
+            yaml.dump(
+                {
+                    "page": {"width": 100, "height": 100},
+                    "panels": [
+                        {
+                            "id": "A",
+                            "file": str(Path("assets") / "missing.pdf"),
+                            "x": 0,
+                            "y": 0,
+                            "width": 50,
+                        }
+                    ],
+                }
+            )
+        )
+        output_file = tmp_path / "output.pdf"
+        stop_event = threading.Event()
+        watched_dirs = []
+
+        def fake_watch(*args, **kwargs):
+            watched_dirs.extend(Path(arg).resolve() for arg in args)
+            stop_event.set()
+            if False:
+                yield set()
+
+        with patch("figquilt.cli.compose_figure", return_value=False):
+            with patch("watchfiles.watch", side_effect=fake_watch):
+                run_watch_mode(
+                    layout_file,
+                    output_file,
+                    fmt="pdf",
+                    verbose=False,
+                    stop_event=stop_event,
+                )
+
+        assert tmp_path.resolve() in watched_dirs
+        assert missing_asset.parent.resolve() not in watched_dirs
+
     def test_watch_mode_rebuilds_on_layout_change(self, valid_layout_data, tmp_path):
         """Watch mode should rebuild when the layout file changes."""
         layout_file, _ = valid_layout_data
@@ -256,6 +299,59 @@ class TestWatchMode:
         )
 
         assert len(rebuild_count) >= 1
+
+    def test_watch_mode_rebuilds_when_missing_panel_file_is_created(self, tmp_path):
+        """Watch mode should rebuild when a previously missing panel file appears."""
+        missing_asset = tmp_path / "missing.pdf"
+        layout_file = tmp_path / "layout.yaml"
+        layout_file.write_text(
+            yaml.dump(
+                {
+                    "page": {"width": 100, "height": 100},
+                    "panels": [
+                        {
+                            "id": "A",
+                            "file": missing_asset.name,
+                            "x": 0,
+                            "y": 0,
+                            "width": 50,
+                        }
+                    ],
+                }
+            )
+        )
+        output_file = tmp_path / "output.pdf"
+        stop_event = threading.Event()
+        rebuild_count = []
+
+        def mock_compose(*args, **kwargs):
+            rebuild_count.append(1)
+            return len(rebuild_count) > 1
+
+        def run_watcher():
+            with patch("figquilt.cli.compose_figure", side_effect=mock_compose):
+                with patch("watchfiles.watch") as mock_watch:
+
+                    def fake_watch(*args, **kwargs):
+                        missing_asset.touch()
+                        yield {(1, str(missing_asset))}
+                        stop_event.set()
+
+                    mock_watch.side_effect = fake_watch
+                    run_watch_mode(
+                        layout_file,
+                        output_file,
+                        fmt="pdf",
+                        verbose=False,
+                        stop_event=stop_event,
+                    )
+
+        watcher_thread = threading.Thread(target=run_watcher)
+        watcher_thread.start()
+        watcher_thread.join(timeout=2)
+
+        # Initial build + rebuild when the asset appears.
+        assert len(rebuild_count) >= 2
 
     def test_watch_mode_continues_on_build_error(self, valid_layout_data, tmp_path):
         """Watch mode should continue watching even if a build fails."""
