@@ -19,6 +19,15 @@ class SourceInfo(NamedTuple):
     aspect_ratio: float
 
 
+class CellRect(NamedTuple):
+    """Panel cell rectangle in page coordinates."""
+
+    x: float
+    y: float
+    width: float
+    height: float
+
+
 class ContentRect(NamedTuple):
     """Computed content rectangle within a cell."""
 
@@ -28,6 +37,13 @@ class ContentRect(NamedTuple):
     height: float
     offset_x: float
     offset_y: float
+
+
+class PanelGeometry(NamedTuple):
+    """Resolved panel cell and fitted content geometry."""
+
+    cell: CellRect
+    content: ContentRect
 
 
 class BaseComposer(ABC):
@@ -87,27 +103,46 @@ class BaseComposer(ABC):
         Returns:
             ContentRect with position, dimensions, and offsets
         """
+        return self.calculate_panel_geometry(panel, src_aspect).content
+
+    def calculate_cell_rect(self, panel: Panel, src_aspect: float) -> CellRect:
+        """Calculate the panel cell rectangle in page coordinates."""
         x = to_pt(panel.x, self.units) + self.margin_pt
         y = to_pt(panel.y, self.units) + self.margin_pt
         w = to_pt(panel.width, self.units)
+        h = self._panel_height_pt(panel, src_aspect, width_pt=w)
 
-        if panel.height is not None:
-            h = to_pt(panel.height, self.units)
-        else:
-            h = w * src_aspect
+        return CellRect(x=x, y=y, width=w, height=h)
+
+    def calculate_panel_geometry(
+        self, panel: Panel, src_aspect: float
+    ) -> PanelGeometry:
+        """Calculate panel cell geometry and fitted content placement."""
+        cell = self.calculate_cell_rect(panel, src_aspect)
 
         content_w, content_h, offset_x, offset_y = calculate_fit(
-            src_aspect, w, h, panel.fit, panel.align
+            src_aspect, cell.width, cell.height, panel.fit, panel.align
         )
 
-        return ContentRect(
-            x=x,
-            y=y,
-            width=content_w,
-            height=content_h,
-            offset_x=offset_x,
-            offset_y=offset_y,
+        return PanelGeometry(
+            cell=cell,
+            content=ContentRect(
+                x=cell.x,
+                y=cell.y,
+                width=content_w,
+                height=content_h,
+                offset_x=offset_x,
+                offset_y=offset_y,
+            ),
         )
+
+    def _panel_height_pt(
+        self, panel: Panel, src_aspect: float, *, width_pt: float
+    ) -> float:
+        """Return the panel cell height in points."""
+        if panel.height is not None:
+            return to_pt(panel.height, self.units)
+        return width_pt * src_aspect
 
     def get_label_text(self, panel: Panel, index: int) -> str | None:
         """

@@ -54,24 +54,19 @@ class PDFComposer(BaseComposer):
         source_info = self.open_source(panel)
 
         try:
-            content_rect = self.calculate_content_rect(panel, source_info.aspect_ratio)
+            geometry = self.calculate_panel_geometry(panel, source_info.aspect_ratio)
+            content_rect = geometry.content
             content_draw_rect = fitz.Rect(
                 content_rect.x + content_rect.offset_x,
                 content_rect.y + content_rect.offset_y,
                 content_rect.x + content_rect.offset_x + content_rect.width,
                 content_rect.y + content_rect.offset_y + content_rect.height,
             )
-            cell_w = to_pt(panel.width, self.units)
-            cell_h = (
-                to_pt(panel.height, self.units)
-                if panel.height is not None
-                else cell_w * source_info.aspect_ratio
-            )
             cell_rect = fitz.Rect(
-                content_rect.x,
-                content_rect.y,
-                content_rect.x + cell_w,
-                content_rect.y + cell_h,
+                geometry.cell.x,
+                geometry.cell.y,
+                geometry.cell.x + geometry.cell.width,
+                geometry.cell.y + geometry.cell.height,
             )
 
             if panel.fit == "cover":

@@ -50,13 +50,12 @@ class SVGComposer(BaseComposer):
         source_info = self.open_source(panel)
 
         try:
-            content_rect = self.calculate_content_rect(panel, source_info.aspect_ratio)
-            label_x = 0.0
-            label_y = 0.0
+            geometry = self.calculate_panel_geometry(panel, source_info.aspect_ratio)
+            content_rect = geometry.content
 
             # Create group for the panel
             g = etree.SubElement(root, "g")
-            g.set("transform", f"translate({content_rect.x}, {content_rect.y})")
+            g.set("transform", f"translate({geometry.cell.x}, {geometry.cell.y})")
 
             # Set up clipping for cover mode
             clip_id = None
@@ -65,17 +64,15 @@ class SVGComposer(BaseComposer):
                     g,
                     panel.id,
                     index,
-                    to_pt(panel.width, self.units),
-                    content_rect.height
-                    if panel.height is None
-                    else to_pt(panel.height, self.units),
+                    geometry.cell.width,
+                    geometry.cell.height,
                 )
 
             # Embed content
             self._embed_content(g, panel, content_rect, source_info.doc[0], clip_id)
 
             # Draw label
-            self._draw_label(g, panel, label_x, label_y, index)
+            self._draw_label(g, panel, index)
         finally:
             source_info.doc.close()
 
@@ -142,8 +139,6 @@ class SVGComposer(BaseComposer):
         self,
         parent: etree.Element,
         panel: Panel,
-        label_x: float,
-        label_y: float,
         index: int,
     ) -> None:
         """Draw the label for a panel."""
@@ -153,10 +148,9 @@ class SVGComposer(BaseComposer):
 
         style = self.get_label_style(panel)
 
-        # Offset relative to the label anchor, which is the content rect in
-        # contain mode and the panel cell in cover mode.
-        x = label_x + to_pt(style.offset_x, self.units)
-        y = label_y + to_pt(style.offset_y, self.units)
+        # The parent group is already translated to the panel cell origin.
+        x = to_pt(style.offset_x, self.units)
+        y = to_pt(style.offset_y, self.units)
 
         txt = etree.SubElement(parent, "text")
         txt.text = text_str
