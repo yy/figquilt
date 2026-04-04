@@ -25,8 +25,10 @@ _FONT_FAMILY_VARIANTS = {
 class PDFComposer(BaseComposer):
     def compose(self, output_path: Path) -> None:
         doc = self.build()
-        doc.save(str(output_path))
-        doc.close()
+        try:
+            doc.save(str(output_path))
+        finally:
+            doc.close()
 
     def build(self) -> fitz.Document:
         doc = fitz.open()

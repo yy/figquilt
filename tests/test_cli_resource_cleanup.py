@@ -1,8 +1,13 @@
 from unittest.mock import MagicMock, patch
 
+from pathlib import Path
+
+import pytest
 import yaml
 
 from figquilt.cli import compose_figure
+from figquilt.compose_pdf import PDFComposer
+from figquilt.layout import Layout, Page, Panel
 
 
 def test_compose_figure_closes_document_when_png_export_fails(tmp_path):
@@ -42,4 +47,21 @@ def test_compose_figure_closes_document_when_png_export_fails(tmp_path):
         result = compose_figure(layout_file, output_file, fmt="png", verbose=False)
 
     assert result is False
+    mock_doc.close.assert_called_once()
+
+
+def test_pdf_composer_closes_document_when_save_fails():
+    """PDF save failures should still close the generated document."""
+    panel = Panel(id="A", file=Path("dummy.pdf"), x=0, y=0, width=50)
+    layout = Layout(page=Page(width=100, height=100, units="mm"), panels=[panel])
+
+    mock_doc = MagicMock()
+    mock_doc.save.side_effect = RuntimeError("save failed")
+
+    composer = PDFComposer(layout, panels=[panel])
+
+    with patch.object(PDFComposer, "build", return_value=mock_doc):
+        with pytest.raises(RuntimeError, match="save failed"):
+            composer.compose(Path("output.pdf"))
+
     mock_doc.close.assert_called_once()
