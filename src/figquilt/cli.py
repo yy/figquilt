@@ -11,6 +11,7 @@ from .layout import Layout, Panel, iter_layout_leaves
 from .grid import resolve_layout
 
 type Renderer = Callable[[Layout, Path, list[Panel] | None], None]
+type WatchedPaths = tuple[Set[Path], Set[Path]]
 
 
 def _print_layout_summary(
@@ -55,15 +56,16 @@ def _compose_png(
         doc.close()
 
 
+_RENDERERS: dict[str, Renderer] = {
+    "pdf": _compose_pdf,
+    "svg": _compose_svg,
+    "png": _compose_png,
+}
+
+
 def _renderer_for_format(fmt: str) -> Renderer | None:
     """Return the renderer for a supported output format."""
-    if fmt == "pdf":
-        return _compose_pdf
-    if fmt == "svg":
-        return _compose_svg
-    if fmt == "png":
-        return _compose_png
-    return None
+    return _RENDERERS.get(fmt)
 
 
 def _iter_referenced_asset_paths(layout: Layout):
@@ -87,6 +89,28 @@ def _nearest_existing_dir(path: Path) -> Path:
             break
         candidate = parent
     return candidate if candidate.is_dir() else candidate.parent
+
+
+def _layout_only_watch_paths(layout_path: Path) -> WatchedPaths:
+    """Watch just the layout file and its parent directory."""
+    layout_path = layout_path.resolve()
+    return {layout_path}, {layout_path.parent}
+
+
+def _load_watched_paths(
+    layout_path: Path,
+    *,
+    validate_assets: bool,
+    fallback_to_layout_only: bool,
+) -> WatchedPaths | None:
+    """Parse a layout and derive the file and directory watch targets."""
+    try:
+        layout = parse_layout(layout_path, validate_assets=validate_assets)
+        return get_watched_paths(layout_path, layout)
+    except FigQuiltError:
+        if fallback_to_layout_only:
+            return _layout_only_watch_paths(layout_path)
+        return None
 
 
 def get_watched_paths(layout_path: Path, layout: Layout) -> Tuple[Set[Path], Set[Path]]:
@@ -170,14 +194,13 @@ def run_watch_mode(
         print("Initial build failed, watching for changes...")
 
     # Get initial set of watched files and directories
-    try:
-        layout = parse_layout(layout_path, validate_assets=False)
-        watched_files, watch_dirs = get_watched_paths(layout_path, layout)
-    except FigQuiltError:
-        # If layout is invalid, just watch the layout file itself
-        layout_path_resolved = layout_path.resolve()
-        watched_files = {layout_path_resolved}
-        watch_dirs = {layout_path_resolved.parent}
+    watched_paths = _load_watched_paths(
+        layout_path,
+        validate_assets=False,
+        fallback_to_layout_only=True,
+    )
+    assert watched_paths is not None
+    watched_files, watch_dirs = watched_paths
 
     while True:
         restart_watcher = False
@@ -202,20 +225,24 @@ def run_watch_mode(
                     print("failed")
 
                 # Re-parse layout to update watched files (panels might have changed)
-                try:
-                    layout = parse_layout(layout_path)
-                    new_files, new_dirs = get_watched_paths(layout_path, layout)
-                    if new_dirs != watch_dirs:
-                        # Directories changed, need to restart the watcher
-                        watched_files = new_files
-                        watch_dirs = new_dirs
-                        restart_watcher = True
-                        if verbose:
-                            print("Watch directories changed, restarting watcher...")
-                        break
+                refreshed_paths = _load_watched_paths(
+                    layout_path,
+                    validate_assets=True,
+                    fallback_to_layout_only=False,
+                )
+                if refreshed_paths is None:
+                    continue
+
+                new_files, new_dirs = refreshed_paths
+                if new_dirs != watch_dirs:
+                    # Directories changed, need to restart the watcher
                     watched_files = new_files
-                except FigQuiltError:
-                    pass  # Keep watching existing files if layout is invalid
+                    watch_dirs = new_dirs
+                    restart_watcher = True
+                    if verbose:
+                        print("Watch directories changed, restarting watcher...")
+                    break
+                watched_files = new_files
 
         if stop_event and stop_event.is_set():
             return
@@ -260,7 +287,7 @@ def main():
     suffix = args.output.suffix.lower()
     fmt = args.format or suffix.lstrip(".")
 
-    if fmt not in ("pdf", "svg", "png"):
+    if fmt not in _RENDERERS:
         print(f"Unsupported format: {fmt}", file=sys.stderr)
         sys.exit(1)
 
