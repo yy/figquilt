@@ -115,6 +115,35 @@ def _panel_height(panel: Panel) -> float:
     return panel.height
 
 
+def _panel_from_leaf(
+    node: LayoutNode,
+    *,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    path: tuple[str, ...],
+) -> Panel:
+    """Create a resolved panel from a validated leaf node."""
+    if node.id is None or node.file is None:
+        raise LayoutError(
+            f"Leaf node at {'.'.join(path)} must define both id and file"
+        )
+
+    return Panel(
+        id=node.id,
+        file=node.file,
+        x=x,
+        y=y,
+        width=width,
+        height=height,
+        fit=node.fit,
+        align=node.align,
+        label=node.label,
+        label_style=node.label_style,
+    )
+
+
 def _resolve_auto(
     node: LayoutNode,
     x: float,
@@ -169,17 +198,13 @@ def _resolve_auto(
             child = children[i]
             panel_w = aspects[i] * row_h * fit_scale
             panels.append(
-                Panel(
-                    id=child.id,
-                    file=child.file,
+                _panel_from_leaf(
+                    child,
                     x=cursor_x,
                     y=cursor_y,
                     width=panel_w,
                     height=scaled_row_h,
-                    fit=child.fit,
-                    align=child.align,
-                    label=child.label,
-                    label_style=child.label_style,
+                    path=(*path, f"children[{i}]"),
                 )
             )
             cursor_x += panel_w + node.gap * fit_scale
@@ -360,18 +385,7 @@ def _resolve_node(
                 f"Leaf node '{node.id}' has non-positive size ({width}x{height}) at {'.'.join(path)}"
             )
         panels.append(
-            Panel(
-                id=node.id,
-                file=node.file,
-                x=x,
-                y=y,
-                width=width,
-                height=height,
-                fit=node.fit,
-                align=node.align,
-                label=node.label,
-                label_style=node.label_style,
-            )
+            _panel_from_leaf(node, x=x, y=y, width=width, height=height, path=path)
         )
         return
 

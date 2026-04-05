@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from figquilt.layout import Layout, LayoutNode, Page, Panel
+from figquilt.layout import LabelStyle, Layout, LayoutNode, Page, Panel
 
 
 def make_page(width=180, height=100, margin=0):
@@ -187,6 +187,77 @@ class TestContainerMargin:
         assert panels[0].y == 10
         assert panels[0].width == 40
         assert panels[0].height == 30  # 50 - 20 margin
+
+
+class TestLeafMetadataPreservation:
+    """Tests that resolved panels preserve leaf metadata."""
+
+    def test_grid_layout_leaf_preserves_fit_alignment_and_label_style(self):
+        """Standard grid resolution should retain leaf display metadata."""
+        from figquilt.grid import resolve_layout
+
+        label_style = LabelStyle(font_family="Courier", font_size_pt=12, bold=False)
+        layout = Layout(
+            page=make_page(width=100, height=50),
+            layout=make_row(
+                [
+                    LayoutNode(
+                        id="A",
+                        file=Path("a.pdf"),
+                        fit="cover",
+                        align="bottom-right",
+                        label="panel a",
+                        label_style=label_style,
+                    ),
+                    make_leaf("B"),
+                ]
+            ),
+        )
+
+        panels = resolve_layout(layout)
+
+        assert panels[0].fit == "cover"
+        assert panels[0].align == "bottom-right"
+        assert panels[0].label == "panel a"
+        assert panels[0].label_style == label_style
+
+    def test_auto_layout_leaf_preserves_fit_alignment_and_label_style(self, tmp_path):
+        """Auto layout resolution should retain leaf display metadata."""
+        from figquilt.grid import resolve_layout
+
+        import fitz
+
+        asset = tmp_path / "a.pdf"
+        doc = fitz.open()
+        doc.new_page(width=120, height=80)
+        doc.save(asset)
+        doc.close()
+
+        label_style = LabelStyle(font_family="Courier", font_size_pt=12, bold=False)
+        layout = Layout(
+            page=make_page(width=100, height=80),
+            layout=LayoutNode(
+                type="auto",
+                children=[
+                    LayoutNode(
+                        id="A",
+                        file=asset,
+                        fit="cover",
+                        align="bottom-right",
+                        label="panel a",
+                        label_style=label_style,
+                    )
+                ],
+            ),
+        )
+
+        panels = resolve_layout(layout)
+
+        assert len(panels) == 1
+        assert panels[0].fit == "cover"
+        assert panels[0].align == "bottom-right"
+        assert panels[0].label == "panel a"
+        assert panels[0].label_style == label_style
 
 
 class TestPageMargin:
