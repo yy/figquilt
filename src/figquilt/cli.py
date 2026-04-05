@@ -224,15 +224,15 @@ def run_watch_mode(
                 else:
                     print("failed")
 
-                # Re-parse layout to update watched files (panels might have changed)
+                # Refresh watch targets from the latest layout even if the rebuild
+                # failed, so newly referenced missing assets can still trigger
+                # another rebuild when they appear.
                 refreshed_paths = _load_watched_paths(
                     layout_path,
-                    validate_assets=True,
-                    fallback_to_layout_only=False,
+                    validate_assets=False,
+                    fallback_to_layout_only=True,
                 )
-                if refreshed_paths is None:
-                    continue
-
+                assert refreshed_paths is not None
                 new_files, new_dirs = refreshed_paths
                 if new_dirs != watch_dirs:
                     # Directories changed, need to restart the watcher

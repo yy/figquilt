@@ -353,6 +353,79 @@ class TestWatchMode:
         # Initial build + rebuild when the asset appears.
         assert len(rebuild_count) >= 2
 
+    def test_watch_mode_tracks_new_missing_asset_after_layout_change(self, tmp_path):
+        """Watch mode should rebuild when a layout edit introduces a missing asset."""
+        original_asset = tmp_path / "a.pdf"
+        original_asset.write_bytes(b"%PDF-1.4 a")
+        missing_asset = tmp_path / "b.pdf"
+        layout_file = tmp_path / "layout.yaml"
+        layout_file.write_text(
+            yaml.dump(
+                {
+                    "page": {"width": 100, "height": 100},
+                    "panels": [
+                        {
+                            "id": "A",
+                            "file": original_asset.name,
+                            "x": 0,
+                            "y": 0,
+                            "width": 50,
+                        }
+                    ],
+                }
+            )
+        )
+        output_file = tmp_path / "output.pdf"
+        stop_event = threading.Event()
+        rebuild_count = []
+
+        def mock_compose(*args, **kwargs):
+            rebuild_count.append(1)
+            return len(rebuild_count) != 2
+
+        def run_watcher():
+            with patch("figquilt.cli.compose_figure", side_effect=mock_compose):
+                with patch("watchfiles.watch") as mock_watch:
+
+                    def fake_watch(*args, **kwargs):
+                        layout_file.write_text(
+                            yaml.dump(
+                                {
+                                    "page": {"width": 100, "height": 100},
+                                    "panels": [
+                                        {
+                                            "id": "A",
+                                            "file": missing_asset.name,
+                                            "x": 0,
+                                            "y": 0,
+                                            "width": 50,
+                                        }
+                                    ],
+                                }
+                            )
+                        )
+                        yield {(1, str(layout_file))}
+                        missing_asset.touch()
+                        yield {(1, str(missing_asset))}
+                        stop_event.set()
+
+                    mock_watch.side_effect = fake_watch
+                    run_watch_mode(
+                        layout_file,
+                        output_file,
+                        fmt="pdf",
+                        verbose=False,
+                        stop_event=stop_event,
+                    )
+
+        watcher_thread = threading.Thread(target=run_watcher)
+        watcher_thread.start()
+        watcher_thread.join(timeout=2)
+
+        # Initial build, failed rebuild after layout change, then rebuild when
+        # the missing asset appears.
+        assert len(rebuild_count) >= 3
+
     def test_watch_mode_continues_on_build_error(self, valid_layout_data, tmp_path):
         """Watch mode should continue watching even if a build fails."""
         layout_file, _ = valid_layout_data
