@@ -559,6 +559,38 @@ class TestCheckMode:
         assert result.returncode == 1
         assert "Error" in result.stderr
 
+    def test_check_mode_reports_unreadable_layout_without_traceback(self, tmp_path):
+        """--check should report unreadable layout files without crashing."""
+        import stat
+        import subprocess
+        import sys
+
+        layout_file = tmp_path / "layout.yaml"
+        layout_file.write_text("page:\n  width: 100\n  height: 100\npanels: []\n")
+        output_file = tmp_path / "output.pdf"
+
+        original_mode = layout_file.stat().st_mode
+        try:
+            layout_file.chmod(0)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "figquilt.cli",
+                    "--check",
+                    str(layout_file),
+                    str(output_file),
+                ],
+                capture_output=True,
+                text=True,
+            )
+        finally:
+            layout_file.chmod(stat.S_IMODE(original_mode))
+
+        assert result.returncode == 1
+        assert "Error: Failed to read layout file" in result.stderr
+        assert "Traceback" not in result.stderr
+
     def test_check_mode_ignores_output_suffix(self, valid_layout_data, tmp_path):
         """--check should not require a renderable output suffix."""
         import subprocess

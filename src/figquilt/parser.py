@@ -63,9 +63,13 @@ def parse_layout(layout_path: Path, *, validate_assets: bool = True) -> Layout:
 
     try:
         content = layout_path.read_text()
+    except (OSError, UnicodeDecodeError) as e:
+        raise LayoutError(f"Failed to read layout file: {layout_path}: {e}") from e
+
+    try:
         data, line_map = _parse_yaml_with_lines(content)
     except yaml.YAMLError as e:
-        raise LayoutError(f"Failed to parse YAML: {e}")
+        raise LayoutError(f"Failed to parse YAML: {e}") from e
 
     if data is None:
         raise LayoutError("Layout file is empty")
