@@ -1,6 +1,8 @@
 """PDF composer using PyMuPDF (fitz)."""
 
+from contextlib import contextmanager
 from pathlib import Path
+from collections.abc import Iterator
 
 import fitz
 
@@ -57,18 +59,12 @@ class PDFComposer(BaseComposer):
 
         try:
             geometry = self.calculate_panel_geometry(panel, source_info.aspect_ratio)
-            content_rect = geometry.content
-            content_draw_rect = fitz.Rect(
-                content_rect.x + content_rect.offset_x,
-                content_rect.y + content_rect.offset_y,
-                content_rect.x + content_rect.offset_x + content_rect.width,
-                content_rect.y + content_rect.offset_y + content_rect.height,
-            )
-            cell_rect = fitz.Rect(
+            content_draw_rect = self._content_draw_rect(geometry.content)
+            cell_rect = self._fitz_rect(
                 geometry.cell.x,
                 geometry.cell.y,
-                geometry.cell.x + geometry.cell.width,
-                geometry.cell.y + geometry.cell.height,
+                geometry.cell.width,
+                geometry.cell.height,
             )
 
             if panel.fit == "cover":
@@ -84,40 +80,25 @@ class PDFComposer(BaseComposer):
         self, page: fitz.Page, rect: fitz.Rect, src_doc: fitz.Document, panel: Panel
     ) -> None:
         """Embed the source content into the page at the given rect."""
-        if src_doc.is_pdf:
-            page.show_pdf_page(rect, src_doc, 0)
-        elif panel.file.suffix.lower() == ".svg":
-            # Convert SVG to PDF in memory for vector preservation
-            pdf_bytes = src_doc.convert_to_pdf()
-            src_pdf = fitz.open("pdf", pdf_bytes)
-            try:
-                page.show_pdf_page(rect, src_pdf, 0)
-            finally:
-                src_pdf.close()
-        else:
-            # Insert as image (works for PNG/JPEG)
-            page.insert_image(rect, filename=panel.file)
+        with self._open_vector_source(src_doc, panel) as vector_doc:
+            if vector_doc is not None:
+                page.show_pdf_page(rect, vector_doc, 0)
+                return
+
+        # Insert as image (works for PNG/JPEG)
+        page.insert_image(rect, filename=panel.file)
 
     def _embed_cover(
         self, page: fitz.Page, cell_rect: fitz.Rect, src_doc: fitz.Document, panel: Panel
     ) -> None:
         """Embed content in cover mode by clipping to the panel cell."""
-        if src_doc.is_pdf:
-            clip_rect = self._compute_source_clip(src_doc[0].rect, cell_rect, panel.align)
-            page.show_pdf_page(cell_rect, src_doc, 0, clip=clip_rect)
-            return
-
-        if panel.file.suffix.lower() == ".svg":
-            pdf_bytes = src_doc.convert_to_pdf()
-            src_pdf = fitz.open("pdf", pdf_bytes)
-            try:
+        with self._open_vector_source(src_doc, panel) as vector_doc:
+            if vector_doc is not None:
                 clip_rect = self._compute_source_clip(
-                    src_pdf[0].rect, cell_rect, panel.align
+                    vector_doc[0].rect, cell_rect, panel.align
                 )
-                page.show_pdf_page(cell_rect, src_pdf, 0, clip=clip_rect)
-            finally:
-                src_pdf.close()
-            return
+                page.show_pdf_page(cell_rect, vector_doc, 0, clip=clip_rect)
+                return
 
         # Raster images: render cropped source area into the destination cell.
         src_page = src_doc[0]
@@ -174,6 +155,41 @@ class PDFComposer(BaseComposer):
         page.insert_text(
             (pos_x, pos_y), text, fontsize=style.font_size_pt, fontname=fontname
         )
+
+    @staticmethod
+    def _fitz_rect(x: float, y: float, width: float, height: float) -> fitz.Rect:
+        """Build a PyMuPDF rectangle from an origin and size."""
+        return fitz.Rect(x, y, x + width, y + height)
+
+    def _content_draw_rect(self, content_rect) -> fitz.Rect:
+        """Return the destination rect for fitted panel content."""
+        return self._fitz_rect(
+            content_rect.x + content_rect.offset_x,
+            content_rect.y + content_rect.offset_y,
+            content_rect.width,
+            content_rect.height,
+        )
+
+    @contextmanager
+    def _open_vector_source(
+        self, src_doc: fitz.Document, panel: Panel
+    ) -> Iterator[fitz.Document | None]:
+        """Yield a PDF-like document for vector sources, if applicable."""
+        if src_doc.is_pdf:
+            yield src_doc
+            return
+
+        if panel.file.suffix.lower() != ".svg":
+            yield None
+            return
+
+        # Convert SVG to PDF in memory for vector preservation.
+        pdf_bytes = src_doc.convert_to_pdf()
+        src_pdf = fitz.open("pdf", pdf_bytes)
+        try:
+            yield src_pdf
+        finally:
+            src_pdf.close()
 
     @staticmethod
     def _resolve_font_name(font_family: str, *, bold: bool) -> str:

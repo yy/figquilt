@@ -29,6 +29,17 @@ def tall_pdf(tmp_path):
     return path
 
 
+@pytest.fixture
+def wide_svg(tmp_path):
+    """Create a 200x100 pt wide SVG (2:1 aspect ratio)."""
+    path = tmp_path / "wide.svg"
+    path.write_text(
+        '<svg width="200" height="100" xmlns="http://www.w3.org/2000/svg">'
+        '<rect width="200" height="100" fill="#00ff00"/></svg>'
+    )
+    return path
+
+
 def test_fit_contain_wide_image_in_square_cell(tmp_path, wide_pdf):
     """Contain mode: wide image (2:1) in square cell should be letter-boxed vertically."""
     layout_data = {
@@ -151,6 +162,48 @@ def test_fit_cover_clips_to_cell_bounds(tmp_path, wide_pdf):
     idx = (50 * pix.width + 150) * n
     rgb = tuple(pix.samples[idx : idx + 3])
     assert rgb == (255, 255, 255)
+
+
+def test_fit_cover_svg_clips_to_cell_bounds(tmp_path, wide_svg):
+    """Cover mode should clip SVG sources to panel bounds in PDF output."""
+    layout_data = {
+        "page": {
+            "width": 200,
+            "height": 100,
+            "units": "pt",
+            "background": "white",
+        },
+        "panels": [
+            {
+                "id": "A",
+                "file": str(wide_svg),
+                "x": 0,
+                "y": 0,
+                "width": 100,
+                "height": 100,
+                "fit": "cover",
+            }
+        ],
+    }
+    layout_file = tmp_path / "layout_svg_clip.yaml"
+    with open(layout_file, "w") as f:
+        yaml.dump(layout_data, f)
+
+    layout = parse_layout(layout_file)
+    output_pdf = tmp_path / "out_svg.pdf"
+    PDFComposer(layout).compose(output_pdf)
+
+    doc = fitz.open(output_pdf)
+    pix = doc[0].get_pixmap(dpi=72)
+    doc.close()
+
+    inside_idx = (50 * pix.width + 50) * pix.n
+    inside_rgb = tuple(pix.samples[inside_idx : inside_idx + 3])
+    assert inside_rgb != (255, 255, 255)
+
+    outside_idx = (50 * pix.width + 150) * pix.n
+    outside_rgb = tuple(pix.samples[outside_idx : outside_idx + 3])
+    assert outside_rgb == (255, 255, 255)
 
 
 def test_fit_default_is_contain(tmp_path, wide_pdf):
