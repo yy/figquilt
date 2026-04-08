@@ -1,4 +1,5 @@
 import pytest
+import fitz
 from unittest.mock import patch, MagicMock
 import yaml
 import threading
@@ -13,7 +14,10 @@ from figquilt.layout import Layout, Page, Panel
 def valid_layout_data(tmp_path):
     """Create a valid layout file and panel for testing."""
     panel_file = tmp_path / "panel.pdf"
-    panel_file.write_bytes(b"%PDF-1.4 minimal pdf content")
+    doc = fitz.open()
+    doc.new_page(width=100, height=100)
+    doc.save(str(panel_file))
+    doc.close()
 
     data = {
         "page": {"width": 100, "height": 100, "units": "mm"},
@@ -694,6 +698,50 @@ class TestCheckMode:
 
         assert result.returncode == 1
         assert "Error: Could not determine size of panel 'A' for auto layout" in result.stderr
+        assert "Traceback" not in result.stderr
+
+    def test_check_mode_reports_unreadable_explicit_panel_asset(self, tmp_path):
+        """--check should fail when an explicit panel source cannot be opened."""
+        import subprocess
+        import sys
+
+        asset_file = tmp_path / "bad.bin"
+        asset_file.write_bytes(b"not an image")
+        layout_file = tmp_path / "layout.yaml"
+        layout_file.write_text(
+            yaml.dump(
+                {
+                    "page": {"width": 100, "height": 100},
+                    "panels": [
+                        {
+                            "id": "A",
+                            "file": str(asset_file.name),
+                            "x": 0,
+                            "y": 0,
+                            "width": 50,
+                            "height": 50,
+                        }
+                    ],
+                }
+            )
+        )
+        output_file = tmp_path / "output.pdf"
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "figquilt.cli",
+                "--check",
+                str(layout_file),
+                str(output_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 1
+        assert "Error: Failed to open panel file" in result.stderr
         assert "Traceback" not in result.stderr
 
 
