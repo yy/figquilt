@@ -526,7 +526,6 @@ class TestCheckMode:
     def test_check_mode_valid_layout(self, valid_layout_data, tmp_path, capsys):
         """--check should print layout info and exit 0 for valid layout."""
         import subprocess
-        import sys
 
         layout_file, _ = valid_layout_data
         output_file = tmp_path / "output.pdf"
@@ -553,7 +552,6 @@ class TestCheckMode:
     def test_check_mode_invalid_layout(self, tmp_path):
         """--check should exit non-zero for invalid layout."""
         import subprocess
-        import sys
 
         layout_file = tmp_path / "invalid.yaml"
         layout_file.write_text("page: not_a_dict")
@@ -578,7 +576,6 @@ class TestCheckMode:
     def test_check_mode_missing_layout(self, tmp_path):
         """--check should exit non-zero for missing layout file."""
         import subprocess
-        import sys
 
         layout_file = tmp_path / "nonexistent.yaml"
         output_file = tmp_path / "output.pdf"
@@ -636,7 +633,6 @@ class TestCheckMode:
     def test_check_mode_ignores_output_suffix(self, valid_layout_data, tmp_path):
         """--check should not require a renderable output suffix."""
         import subprocess
-        import sys
 
         layout_file, _ = valid_layout_data
         output_file = tmp_path / "report.txt"
@@ -660,7 +656,6 @@ class TestCheckMode:
     def test_check_mode_reports_unreadable_auto_scale_asset(self, tmp_path):
         """--check should report unreadable auto-scale assets without a traceback."""
         import subprocess
-        import sys
 
         asset_file = tmp_path / "bad.bin"
         asset_file.write_bytes(b"not an image")
@@ -706,7 +701,6 @@ class TestCheckMode:
     def test_check_mode_reports_unreadable_auto_layout_asset(self, tmp_path):
         """--check should report unreadable auto-layout assets without a traceback."""
         import subprocess
-        import sys
 
         asset_file = tmp_path / "bad.bin"
         asset_file.write_bytes(b"not an image")
@@ -747,7 +741,6 @@ class TestCheckMode:
     def test_check_mode_reports_unreadable_explicit_panel_asset(self, tmp_path):
         """--check should fail when an explicit panel source cannot be opened."""
         import subprocess
-        import sys
 
         asset_file = tmp_path / "bad.bin"
         asset_file.write_bytes(b"not an image")
