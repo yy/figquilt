@@ -86,11 +86,26 @@ class BaseComposer(ABC):
         except Exception as e:
             raise FigQuiltError(f"Failed to open panel file {panel.file}: {e}")
 
-        src_page = src_doc[0]
-        src_rect = src_page.rect
-        aspect_ratio = src_rect.height / src_rect.width
+        try:
+            if src_doc.page_count < 1:
+                raise FigQuiltError(
+                    f"Panel '{panel.id}' source has no pages: {panel.file}"
+                )
 
-        return SourceInfo(doc=src_doc, aspect_ratio=aspect_ratio)
+            src_page = src_doc[0]
+            src_rect = src_page.rect
+            if src_rect.width <= 0 or src_rect.height <= 0:
+                raise FigQuiltError(
+                    "Panel "
+                    f"'{panel.id}' source has non-positive size "
+                    f"({src_rect.width}x{src_rect.height}): {panel.file}"
+                )
+
+            aspect_ratio = src_rect.height / src_rect.width
+            return SourceInfo(doc=src_doc, aspect_ratio=aspect_ratio)
+        except Exception:
+            src_doc.close()
+            raise
 
     def calculate_content_rect(self, panel: Panel, src_aspect: float) -> ContentRect:
         """

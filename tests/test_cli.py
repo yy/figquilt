@@ -168,6 +168,42 @@ class TestComposeFigure:
 
         assert result is False
 
+    def test_compose_figure_reports_non_positive_source_size(
+        self, tmp_path, capsys
+    ):
+        """Malformed sources with zero geometry should be reported cleanly."""
+        asset_file = tmp_path / "zero_width.svg"
+        asset_file.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="100">'
+            '<rect width="0" height="100" fill="red"/></svg>'
+        )
+        layout_file = tmp_path / "layout.yaml"
+        layout_file.write_text(
+            yaml.dump(
+                {
+                    "page": {"width": 100, "height": 100, "units": "pt"},
+                    "panels": [
+                        {
+                            "id": "A",
+                            "file": asset_file.name,
+                            "x": 0,
+                            "y": 0,
+                            "width": 50,
+                            "height": 50,
+                        }
+                    ],
+                }
+            )
+        )
+        output_file = tmp_path / "output.pdf"
+
+        result = compose_figure(layout_file, output_file, fmt="pdf", verbose=False)
+        captured = capsys.readouterr()
+
+        assert result is False
+        assert "Error: Panel 'A' source has non-positive size" in captured.err
+        assert "Unexpected error" not in captured.err
+
 
 class TestWatchMode:
     """Tests for the --watch mode functionality."""
@@ -742,6 +778,55 @@ class TestCheckMode:
 
         assert result.returncode == 1
         assert "Error: Failed to open panel file" in result.stderr
+        assert "Traceback" not in result.stderr
+
+    def test_check_mode_reports_non_positive_source_size_without_traceback(
+        self, tmp_path
+    ):
+        """--check should report malformed zero-size sources without crashing."""
+        import subprocess
+        import sys
+
+        asset_file = tmp_path / "zero_width.svg"
+        asset_file.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="100">'
+            '<rect width="0" height="100" fill="red"/></svg>'
+        )
+        layout_file = tmp_path / "layout.yaml"
+        layout_file.write_text(
+            yaml.dump(
+                {
+                    "page": {"width": 100, "height": 100, "units": "pt"},
+                    "panels": [
+                        {
+                            "id": "A",
+                            "file": asset_file.name,
+                            "x": 0,
+                            "y": 0,
+                            "width": 50,
+                            "height": 50,
+                        }
+                    ],
+                }
+            )
+        )
+        output_file = tmp_path / "output.pdf"
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "figquilt.cli",
+                "--check",
+                str(layout_file),
+                str(output_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 1
+        assert "Error: Panel 'A' source has non-positive size" in result.stderr
         assert "Traceback" not in result.stderr
 
 
