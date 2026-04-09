@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 import fitz
 from unittest.mock import patch, MagicMock
@@ -117,10 +119,10 @@ class TestComposeFigure:
         def fake_renderer(layout_arg, output_arg, panels_arg):
             renderer_calls.append((layout_arg, output_arg, panels_arg))
 
-        with patch("figquilt.cli.parse_layout", return_value=layout), patch(
-            "figquilt.cli.resolve_layout"
-        ) as mock_resolve, patch(
-            "figquilt.cli._renderer_for_format", return_value=fake_renderer
+        with (
+            patch("figquilt.cli.parse_layout", return_value=layout),
+            patch("figquilt.cli.resolve_layout") as mock_resolve,
+            patch("figquilt.cli._renderer_for_format", return_value=fake_renderer),
         ):
             result = compose_figure(
                 tmp_path / "layout.yaml",
@@ -143,10 +145,12 @@ class TestComposeFigure:
         def fake_renderer(layout_arg, output_arg, panels_arg):
             renderer_calls.append((layout_arg, output_arg, panels_arg))
 
-        with patch("figquilt.cli.parse_layout", return_value=layout), patch(
-            "figquilt.cli.resolve_layout", return_value=resolved_panels
-        ) as mock_resolve, patch(
-            "figquilt.cli._renderer_for_format", return_value=fake_renderer
+        with (
+            patch("figquilt.cli.parse_layout", return_value=layout),
+            patch(
+                "figquilt.cli.resolve_layout", return_value=resolved_panels
+            ) as mock_resolve,
+            patch("figquilt.cli._renderer_for_format", return_value=fake_renderer),
         ):
             result = compose_figure(
                 tmp_path / "layout.yaml",
@@ -168,9 +172,7 @@ class TestComposeFigure:
 
         assert result is False
 
-    def test_compose_figure_reports_non_positive_source_size(
-        self, tmp_path, capsys
-    ):
+    def test_compose_figure_reports_non_positive_source_size(self, tmp_path, capsys):
         """Malformed sources with zero geometry should be reported cleanly."""
         asset_file = tmp_path / "zero_width.svg"
         asset_file.write_text(
@@ -486,9 +488,7 @@ class TestWatchMode:
         # Should have been called multiple times despite first failure
         assert len(call_count) >= 2
 
-    def test_watch_mode_tracks_unreadable_auto_layout_asset_changes(
-        self, tmp_path
-    ):
+    def test_watch_mode_tracks_unreadable_auto_layout_asset_changes(self, tmp_path):
         """Watch mode should rebuild when a referenced unreadable asset changes."""
         asset_file = tmp_path / "bad.bin"
         asset_file.write_bytes(b"not an image")
@@ -599,11 +599,13 @@ class TestCheckMode:
         assert result.returncode == 1
         assert "Error" in result.stderr
 
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="chmod(0) doesn't revoke read on Windows"
+    )
     def test_check_mode_reports_unreadable_layout_without_traceback(self, tmp_path):
         """--check should report unreadable layout files without crashing."""
         import stat
         import subprocess
-        import sys
 
         layout_file = tmp_path / "layout.yaml"
         layout_file.write_text("page:\n  width: 100\n  height: 100\npanels: []\n")
@@ -695,7 +697,10 @@ class TestCheckMode:
         )
 
         assert result.returncode == 1
-        assert "Error: Could not determine size of panel 'A' for auto-scaling" in result.stderr
+        assert (
+            "Error: Could not determine size of panel 'A' for auto-scaling"
+            in result.stderr
+        )
         assert "Traceback" not in result.stderr
 
     def test_check_mode_reports_unreadable_auto_layout_asset(self, tmp_path):
@@ -733,7 +738,10 @@ class TestCheckMode:
         )
 
         assert result.returncode == 1
-        assert "Error: Could not determine size of panel 'A' for auto layout" in result.stderr
+        assert (
+            "Error: Could not determine size of panel 'A' for auto layout"
+            in result.stderr
+        )
         assert "Traceback" not in result.stderr
 
     def test_check_mode_reports_unreadable_explicit_panel_asset(self, tmp_path):
