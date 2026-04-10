@@ -1,4 +1,4 @@
-from pathlib import Path
+import re
 
 import fitz
 import pytest
@@ -29,7 +29,7 @@ def test_get_image_size_raises_for_unreadable_assets(tmp_path):
     asset = tmp_path / "sample.bin"
     asset.write_bytes(b"\x00\xff\x00\xff")
 
-    with pytest.raises(ValueError, match=str(asset)):
+    with pytest.raises(ValueError, match=re.escape(str(asset))):
         get_image_size(asset)
 
 
