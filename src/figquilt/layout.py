@@ -227,13 +227,17 @@ def iter_layout_leaves(node: Optional[LayoutNode]) -> Iterator[LayoutNode]:
     yield node
 
 
-def iter_panel_ids(layout: Layout) -> Iterator[str]:
-    """Yield panel IDs from either explicit-panel or grid layout mode."""
+def iter_panels(layout: Layout) -> Iterator[Panel | LayoutNode]:
+    """Yield declared panels in declaration order across both layout modes."""
     if layout.panels is not None:
-        for panel in layout.panels:
-            yield panel.id
+        yield from layout.panels
         return
 
-    for leaf in iter_layout_leaves(layout.layout):
-        if leaf.id is not None:
-            yield leaf.id
+    yield from iter_layout_leaves(layout.layout)
+
+
+def iter_panel_ids(layout: Layout) -> Iterator[str]:
+    """Yield panel IDs from either explicit-panel or grid layout mode."""
+    for panel in iter_panels(layout):
+        if panel.id is not None:
+            yield panel.id

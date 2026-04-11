@@ -635,6 +635,30 @@ class TestExplicitPanelsAutoScale:
         assert panels[1].width == pytest.approx(30)
         assert panels[1].height == pytest.approx(20)
 
+    def test_auto_scale_does_not_upscale_single_off_page_panel(self):
+        """Auto-scale should not enlarge layouts that only need translation."""
+        from figquilt.grid import resolve_layout
+
+        layout = Layout(
+            page=Page(width=100, height=100, units="mm", auto_scale=True),
+            panels=[
+                Panel(
+                    id="A",
+                    file=Path("a.pdf"),
+                    x=-10,
+                    y=0,
+                    width=40,
+                    height=20,
+                )
+            ],
+        )
+
+        panels = resolve_layout(layout)
+        assert panels[0].x == pytest.approx(0)
+        assert panels[0].y == pytest.approx(0)
+        assert panels[0].width == pytest.approx(40)
+        assert panels[0].height == pytest.approx(20)
+
     def test_auto_scale_uses_margin_adjusted_content_area(self):
         """Auto-scale should fit into page content area (page minus margins)."""
         from figquilt.grid import resolve_layout

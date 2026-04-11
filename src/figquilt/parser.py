@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 import yaml
 from pydantic import ValidationError
-from .layout import Layout, iter_layout_leaves
+from .layout import Layout, iter_panels
 from .errors import LayoutError, AssetMissingError
 
 
@@ -98,24 +98,15 @@ def parse_layout(layout_path: Path, *, validate_assets: bool = True) -> Layout:
     # Validate assets exist relative to the layout file
     base_dir = layout_path.parent
 
-    if layout.panels is not None:
-        for panel in layout.panels:
-            panel.file = _resolve_asset_path(
-                panel.id,
-                panel.file,
-                base_dir,
-                validate_exists=validate_assets,
-            )
-    elif layout.layout is not None:
-        for leaf in iter_layout_leaves(layout.layout):
-            if leaf.id is None or leaf.file is None:
-                raise LayoutError("Leaf node must define both 'id' and 'file'")
-            leaf.file = _resolve_asset_path(
-                leaf.id,
-                leaf.file,
-                base_dir,
-                validate_exists=validate_assets,
-            )
+    for panel in iter_panels(layout):
+        if panel.id is None or panel.file is None:
+            raise LayoutError("Leaf node must define both 'id' and 'file'")
+        panel.file = _resolve_asset_path(
+            panel.id,
+            panel.file,
+            base_dir,
+            validate_exists=validate_assets,
+        )
 
     return layout
 

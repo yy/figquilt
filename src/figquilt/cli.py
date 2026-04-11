@@ -7,7 +7,7 @@ from collections.abc import Callable
 
 from .parser import parse_layout
 from .errors import FigQuiltError
-from .layout import Layout, Panel, iter_layout_leaves
+from .layout import Layout, Panel, iter_panels
 from .grid import resolve_layout
 
 type Renderer = Callable[[Layout, Path, list[Panel] | None], None]
@@ -70,14 +70,9 @@ def _renderer_for_format(fmt: str) -> Renderer | None:
 
 def _iter_referenced_asset_paths(layout: Layout):
     """Yield asset paths referenced directly by the parsed layout."""
-    if layout.panels is not None:
-        for panel in layout.panels:
+    for panel in iter_panels(layout):
+        if panel.file is not None:
             yield panel.file.resolve()
-        return
-
-    for leaf in iter_layout_leaves(layout.layout):
-        if leaf.file is not None:
-            yield leaf.file.resolve()
 
 
 def _nearest_existing_dir(path: Path) -> Path:

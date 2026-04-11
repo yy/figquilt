@@ -1,5 +1,5 @@
 import pytest
-from figquilt.layout import Layout
+from figquilt.layout import Layout, iter_panels
 from figquilt.parser import parse_layout
 from figquilt.errors import LayoutError, AssetMissingError
 import yaml
@@ -400,6 +400,62 @@ layout:
 
     with pytest.raises(LayoutError):
         parse_layout(layout_file)
+
+
+def test_iter_panels_yields_explicit_panels_in_order(tmp_path):
+    """iter_panels should preserve declaration order for explicit panels."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 100
+
+panels:
+  - id: A
+    file: {panel.name}
+    x: 0
+    y: 0
+    width: 40
+  - id: B
+    file: {panel.name}
+    x: 50
+    y: 0
+    width: 40
+""")
+
+    layout = parse_layout(layout_file)
+    assert [panel.id for panel in iter_panels(layout)] == ["A", "B"]
+
+
+def test_iter_panels_yields_nested_grid_leaves_in_order(tmp_path):
+    """iter_panels should flatten grid leaves in declaration order."""
+    for name in ["a.pdf", "b.pdf", "c.pdf"]:
+        (tmp_path / name).touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text("""\
+page:
+  width: 100
+  height: 100
+
+layout:
+  type: row
+  children:
+    - id: A
+      file: a.pdf
+    - type: col
+      children:
+        - id: B
+          file: b.pdf
+        - id: C
+          file: c.pdf
+""")
+
+    layout = parse_layout(layout_file)
+    assert [panel.id for panel in iter_panels(layout)] == ["A", "B", "C"]
 
 
 def test_parse_page_auto_scale_flag(tmp_path):

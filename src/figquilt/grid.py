@@ -65,7 +65,9 @@ def _resolve_explicit_panels(
     if bbox_w <= 0 or bbox_h <= 0:
         raise LayoutError("Panel bounding box must have positive width and height")
 
-    scale = min(content_w / bbox_w, content_h / bbox_h)
+    # Auto-scale should only shrink oversized layouts; when a layout already fits
+    # and only needs translation back into bounds, preserve its original size.
+    scale = min(1.0, content_w / bbox_w, content_h / bbox_h)
     if scale <= 0:
         raise LayoutError("Computed auto-scale factor must be positive")
 
