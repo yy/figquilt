@@ -46,6 +46,45 @@ class PanelGeometry(NamedTuple):
     content: ContentRect
 
 
+def open_panel_source(panel: Panel) -> SourceInfo:
+    """
+    Open a panel source file and return its document plus aspect ratio.
+
+    Raises:
+        FigQuiltError: If the source cannot be opened or has invalid geometry.
+    """
+    try:
+        src_doc = fitz.open(panel.file)
+    except Exception as e:
+        raise FigQuiltError(f"Failed to open panel file {panel.file}: {e}") from e
+
+    try:
+        if src_doc.page_count < 1:
+            raise FigQuiltError(f"Panel '{panel.id}' source has no pages: {panel.file}")
+
+        src_page = src_doc[0]
+        src_rect = src_page.rect
+        if src_rect.width <= 0 or src_rect.height <= 0:
+            raise FigQuiltError(
+                "Panel "
+                f"'{panel.id}' source has non-positive size "
+                f"({src_rect.width}x{src_rect.height}): {panel.file}"
+            )
+
+        aspect_ratio = src_rect.height / src_rect.width
+        return SourceInfo(doc=src_doc, aspect_ratio=aspect_ratio)
+    except Exception:
+        src_doc.close()
+        raise
+
+
+def validate_panel_sources(panels: list[Panel]) -> None:
+    """Open and close each resolved panel source to verify readability."""
+    for panel in panels:
+        source_info = open_panel_source(panel)
+        source_info.doc.close()
+
+
 class BaseComposer(ABC):
     """Base class for PDF and SVG composers with shared initialization and helpers."""
 
@@ -81,31 +120,7 @@ class BaseComposer(ABC):
         Raises:
             FigQuiltError: If the file cannot be opened
         """
-        try:
-            src_doc = fitz.open(panel.file)
-        except Exception as e:
-            raise FigQuiltError(f"Failed to open panel file {panel.file}: {e}")
-
-        try:
-            if src_doc.page_count < 1:
-                raise FigQuiltError(
-                    f"Panel '{panel.id}' source has no pages: {panel.file}"
-                )
-
-            src_page = src_doc[0]
-            src_rect = src_page.rect
-            if src_rect.width <= 0 or src_rect.height <= 0:
-                raise FigQuiltError(
-                    "Panel "
-                    f"'{panel.id}' source has non-positive size "
-                    f"({src_rect.width}x{src_rect.height}): {panel.file}"
-                )
-
-            aspect_ratio = src_rect.height / src_rect.width
-            return SourceInfo(doc=src_doc, aspect_ratio=aspect_ratio)
-        except Exception:
-            src_doc.close()
-            raise
+        return open_panel_source(panel)
 
     def calculate_content_rect(self, panel: Panel, src_aspect: float) -> ContentRect:
         """

@@ -57,39 +57,31 @@ class SVGComposer(BaseComposer):
             g = etree.SubElement(root, "g")
             g.set("transform", f"translate({geometry.cell.x}, {geometry.cell.y})")
 
-            # Set up clipping for cover mode
-            clip_id = None
+            # For cover mode, wrap the image in a nested <svg> viewport that
+            # clips content to the cell bounds. An explicit viewBox makes
+            # this work across SVG renderers (including fitz).
             if panel.fit == "cover":
-                clip_id = self._add_clip_path(
-                    g,
-                    panel.id,
-                    index,
-                    geometry.cell.width,
-                    geometry.cell.height,
+                image_parent = etree.SubElement(g, "svg")
+                image_parent.set("x", "0")
+                image_parent.set("y", "0")
+                image_parent.set("width", str(geometry.cell.width))
+                image_parent.set("height", str(geometry.cell.height))
+                image_parent.set(
+                    "viewBox",
+                    f"0 0 {geometry.cell.width} {geometry.cell.height}",
                 )
+                image_parent.set("preserveAspectRatio", "none")
+                image_parent.set("overflow", "hidden")
+            else:
+                image_parent = g
 
             # Embed content
-            self._embed_content(g, panel, content_rect, source_info.doc[0], clip_id)
+            self._embed_content(image_parent, panel, content_rect, source_info.doc[0])
 
-            # Draw label
+            # Draw label on the outer group so it isn't clipped
             self._draw_label(g, panel, index)
         finally:
             source_info.doc.close()
-
-    def _add_clip_path(
-        self, g: etree.Element, panel_id: str, index: int, width: float, height: float
-    ) -> str:
-        """Add a clip path for cover mode and return its ID."""
-        clip_id = f"clip-{panel_id}-{index}"
-        defs = etree.SubElement(g, "defs")
-        clip_path = etree.SubElement(defs, "clipPath")
-        clip_path.set("id", clip_id)
-        clip_rect = etree.SubElement(clip_path, "rect")
-        clip_rect.set("x", "0")
-        clip_rect.set("y", "0")
-        clip_rect.set("width", str(width))
-        clip_rect.set("height", str(height))
-        return clip_id
 
     def _embed_content(
         self,
@@ -97,7 +89,6 @@ class SVGComposer(BaseComposer):
         panel: Panel,
         content_rect,
         src_page,
-        clip_id: str | None,
     ) -> None:
         """Embed the source content into the SVG group."""
         suffix = panel.file.suffix.lower()
@@ -124,9 +115,6 @@ class SVGComposer(BaseComposer):
         img.set("width", str(content_rect.width))
         img.set("height", str(content_rect.height))
         img.set("{http://www.w3.org/1999/xlink}href", data_uri)
-
-        if clip_id:
-            img.set("clip-path", f"url(#{clip_id})")
 
     def _get_data_uri(self, path: Path, mime: str) -> str:
         """Read file and encode as data URI."""

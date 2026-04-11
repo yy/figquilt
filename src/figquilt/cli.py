@@ -5,6 +5,7 @@ from typing import Optional, Set, Tuple
 import threading
 from collections.abc import Callable
 
+from .base_composer import validate_panel_sources
 from .parser import parse_layout
 from .errors import FigQuiltError
 from .layout import Layout, Panel, iter_panels
@@ -161,16 +162,6 @@ def compose_figure(
         return False
 
 
-def _validate_panel_sources(layout: Layout, panels: list[Panel]) -> None:
-    """Open each resolved panel source so `--check` catches unreadable assets."""
-    from .compose_pdf import PDFComposer
-
-    composer = PDFComposer(layout, panels=panels)
-    for panel in panels:
-        source_info = composer.open_source(panel)
-        source_info.doc.close()
-
-
 def run_watch_mode(
     layout_path: Path,
     output_path: Path,
@@ -277,7 +268,7 @@ def main():
         try:
             layout = parse_layout(args.layout)
             panels = resolve_layout(layout)
-            _validate_panel_sources(layout, panels)
+            validate_panel_sources(panels)
             _print_layout_summary(
                 args.layout,
                 layout,
