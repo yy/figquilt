@@ -1,6 +1,8 @@
 """Base class for figure composers with shared functionality."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import NamedTuple
 
@@ -44,6 +46,13 @@ class PanelGeometry(NamedTuple):
 
     cell: CellRect
     content: ContentRect
+
+
+class ResolvedPanelSource(NamedTuple):
+    """Opened panel source plus its derived page geometry."""
+
+    source: SourceInfo
+    geometry: PanelGeometry
 
 
 def open_panel_source(panel: Panel) -> SourceInfo:
@@ -121,6 +130,16 @@ class BaseComposer(ABC):
             FigQuiltError: If the file cannot be opened
         """
         return open_panel_source(panel)
+
+    @contextmanager
+    def resolved_panel_source(self, panel: Panel) -> Iterator[ResolvedPanelSource]:
+        """Yield an opened panel source together with its resolved geometry."""
+        source_info = self.open_source(panel)
+        try:
+            geometry = self.calculate_panel_geometry(panel, source_info.aspect_ratio)
+            yield ResolvedPanelSource(source=source_info, geometry=geometry)
+        finally:
+            source_info.doc.close()
 
     def calculate_content_rect(self, panel: Panel, src_aspect: float) -> ContentRect:
         """

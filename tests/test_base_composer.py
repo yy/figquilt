@@ -1,9 +1,10 @@
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import fitz
 import pytest
 
-from figquilt.base_composer import open_panel_source, validate_panel_sources
+from figquilt.base_composer import SourceInfo, open_panel_source, validate_panel_sources
 from figquilt.compose_pdf import PDFComposer
 from figquilt.layout import Layout, Page, Panel
 
@@ -88,3 +89,47 @@ def test_validate_panel_sources_checks_multiple_panels(tmp_path):
     ]
 
     validate_panel_sources(panels)
+
+
+def test_resolved_panel_source_yields_geometry_and_closes_document():
+    panel = Panel(id="A", file=Path("dummy.pdf"), x=0, y=0, width=20)
+    layout = Layout(page=Page(width=100, height=100, units="pt"), panels=[panel])
+    composer = PDFComposer(layout, panels=[panel])
+    mock_doc = MagicMock()
+
+    with patch.object(
+        composer,
+        "open_source",
+        return_value=SourceInfo(doc=mock_doc, aspect_ratio=1.5),
+    ):
+        with composer.resolved_panel_source(panel) as resolved:
+            assert resolved.source.doc is mock_doc
+            assert resolved.geometry.cell.width == pytest.approx(20.0)
+            assert resolved.geometry.cell.height == pytest.approx(30.0)
+
+    mock_doc.close.assert_called_once()
+
+
+def test_resolved_panel_source_closes_document_when_geometry_fails():
+    panel = Panel(id="A", file=Path("dummy.pdf"), x=0, y=0, width=20)
+    layout = Layout(page=Page(width=100, height=100, units="pt"), panels=[panel])
+    composer = PDFComposer(layout, panels=[panel])
+    mock_doc = MagicMock()
+
+    with (
+        patch.object(
+            composer,
+            "open_source",
+            return_value=SourceInfo(doc=mock_doc, aspect_ratio=1.5),
+        ),
+        patch.object(
+            composer,
+            "calculate_panel_geometry",
+            side_effect=RuntimeError("geometry failed"),
+        ),
+    ):
+        with pytest.raises(RuntimeError, match="geometry failed"):
+            with composer.resolved_panel_source(panel):
+                pass
+
+    mock_doc.close.assert_called_once()

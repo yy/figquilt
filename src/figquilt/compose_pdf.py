@@ -55,10 +55,8 @@ class PDFComposer(BaseComposer):
 
     def _place_panel(self, page: fitz.Page, panel: Panel, index: int) -> None:
         """Place a panel on the page."""
-        source_info = self.open_source(panel)
-
-        try:
-            geometry = self.calculate_panel_geometry(panel, source_info.aspect_ratio)
+        with self.resolved_panel_source(panel) as resolved:
+            geometry = resolved.geometry
             content_draw_rect = self._content_draw_rect(geometry.content)
             cell_rect = self._fitz_rect(
                 geometry.cell.x,
@@ -68,11 +66,9 @@ class PDFComposer(BaseComposer):
             )
 
             if panel.fit == "cover":
-                self._embed_cover(page, cell_rect, source_info.doc, panel)
+                self._embed_cover(page, cell_rect, resolved.source.doc, panel)
             else:
-                self._embed_content(page, content_draw_rect, source_info.doc, panel)
-        finally:
-            source_info.doc.close()
+                self._embed_content(page, content_draw_rect, resolved.source.doc, panel)
 
         self._draw_label(page, panel, cell_rect, index)
 

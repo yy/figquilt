@@ -47,10 +47,8 @@ class SVGComposer(BaseComposer):
 
     def _place_panel(self, root: etree.Element, panel: Panel, index: int) -> None:
         """Place a panel on the SVG."""
-        source_info = self.open_source(panel)
-
-        try:
-            geometry = self.calculate_panel_geometry(panel, source_info.aspect_ratio)
+        with self.resolved_panel_source(panel) as resolved:
+            geometry = resolved.geometry
             content_rect = geometry.content
 
             # Create group for the panel
@@ -76,12 +74,10 @@ class SVGComposer(BaseComposer):
                 image_parent = g
 
             # Embed content
-            self._embed_content(image_parent, panel, content_rect, source_info.doc[0])
+            self._embed_content(image_parent, panel, content_rect, resolved.source.doc[0])
 
             # Draw label on the outer group so it isn't clipped
             self._draw_label(g, panel, index)
-        finally:
-            source_info.doc.close()
 
     def _embed_content(
         self,
