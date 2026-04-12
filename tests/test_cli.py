@@ -206,6 +206,19 @@ class TestComposeFigure:
         assert "Error: Panel 'A' source has non-positive size" in captured.err
         assert "Unexpected error" not in captured.err
 
+    def test_compose_figure_writes_png_when_format_overrides_suffix(
+        self, valid_layout_data, tmp_path
+    ):
+        """PNG output should not depend on the destination file suffix."""
+        layout_file, _ = valid_layout_data
+        output_file = tmp_path / "output.custom"
+
+        result = compose_figure(layout_file, output_file, fmt="png", verbose=False)
+
+        assert result is True
+        assert output_file.exists()
+        assert output_file.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+
 
 class TestWatchMode:
     """Tests for the --watch mode functionality."""

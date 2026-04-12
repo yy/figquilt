@@ -52,7 +52,7 @@ def _compose_png(
     try:
         page = doc[0]
         pix = page.get_pixmap(dpi=layout.page.dpi)
-        pix.save(str(output_path))
+        output_path.write_bytes(pix.tobytes("png"))
     finally:
         doc.close()
 
