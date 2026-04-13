@@ -666,6 +666,42 @@ class TestCheckMode:
         assert result.returncode == 0
         assert "Layout parsed successfully" in result.stdout
 
+    def test_check_mode_does_not_require_output(self, valid_layout_data):
+        """--check should validate a layout without an output path."""
+        import subprocess
+
+        layout_file, _ = valid_layout_data
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "figquilt.cli",
+                "--check",
+                str(layout_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert "Layout parsed successfully" in result.stdout
+
+    def test_build_mode_requires_output(self, valid_layout_data):
+        """Render mode should still reject missing output paths."""
+        import subprocess
+
+        layout_file, _ = valid_layout_data
+
+        result = subprocess.run(
+            [sys.executable, "-m", "figquilt.cli", str(layout_file)],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 2
+        assert "the following arguments are required: output" in result.stderr
+
     def test_check_mode_reports_unreadable_auto_scale_asset(self, tmp_path):
         """--check should report unreadable auto-scale assets without a traceback."""
         import subprocess
