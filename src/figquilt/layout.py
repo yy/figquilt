@@ -2,7 +2,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Literal, Optional, List
 from pathlib import Path
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 FitMode = Literal["contain", "cover"]
 Alignment = Literal[
@@ -61,11 +61,6 @@ class Panel(BaseModel):
         None, description="Override default label styling for this panel"
     )
 
-    @field_validator("file")
-    @classmethod
-    def validate_file(cls, v: Path) -> Path:
-        return v
-
 
 # Grid layout system
 
@@ -116,11 +111,6 @@ class LayoutNode(BaseModel):
     weight: Optional[float] = Field(
         None, gt=0, description="Optional explicit size weight for auto layout"
     )
-
-    @field_validator("file")
-    @classmethod
-    def validate_file(cls, v: Optional[Path]) -> Optional[Path]:
-        return v
 
     @model_validator(mode="after")
     def validate_node(self) -> LayoutNode:
