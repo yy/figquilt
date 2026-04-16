@@ -3,6 +3,8 @@ from figquilt.layout import Layout, iter_panels
 from figquilt.parser import parse_layout
 from figquilt.errors import LayoutError, AssetMissingError
 import yaml
+from pydantic import ValidationError
+from pathlib import Path
 
 
 @pytest.fixture
@@ -258,6 +260,35 @@ layout:
 
     with pytest.raises(LayoutError):
         parse_layout(layout_file)
+
+
+def test_layout_node_rejects_mixed_container_and_leaf_fields():
+    with pytest.raises(ValidationError, match="Node cannot be both container and leaf"):
+        from figquilt.layout import LayoutNode
+
+        LayoutNode(
+            type="row",
+            children=[LayoutNode(id="B", file=Path("b.pdf"))],
+            id="A",
+            file=Path("a.pdf"),
+        )
+
+
+def test_layout_node_rejects_ratio_count_mismatch():
+    with pytest.raises(
+        ValidationError,
+        match=r"ratios length \(1\) must match children length \(2\)",
+    ):
+        from figquilt.layout import LayoutNode
+
+        LayoutNode(
+            type="row",
+            children=[
+                LayoutNode(id="A", file=Path("a.pdf")),
+                LayoutNode(id="B", file=Path("b.pdf")),
+            ],
+            ratios=[1],
+        )
 
 
 def test_container_must_have_children(tmp_path):

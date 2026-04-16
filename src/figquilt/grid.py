@@ -54,9 +54,7 @@ def _resolve_explicit_panels(
     resolved = [_resolve_panel_height(panel) for panel in panels]
     left, top, right, bottom = _panel_bounds(resolved)
 
-    needs_transform = (
-        left < 0 or top < 0 or right > content_w or bottom > content_h
-    )
+    needs_transform = left < 0 or top < 0 or right > content_w or bottom > content_h
     if not needs_transform:
         return resolved
 
@@ -128,9 +126,7 @@ def _panel_from_leaf(
 ) -> Panel:
     """Create a resolved panel from a validated leaf node."""
     if node.id is None or node.file is None:
-        raise LayoutError(
-            f"Leaf node at {'.'.join(path)} must define both id and file"
-        )
+        raise LayoutError(f"Leaf node at {'.'.join(path)} must define both id and file")
 
     return Panel(
         id=node.id,
@@ -161,7 +157,9 @@ def _resolve_auto(
     if n == 0:
         return
 
-    aspects = [_leaf_width_over_height(child, path, i) for i, child in enumerate(children)]
+    aspects = [
+        _leaf_width_over_height(child, path, i) for i, child in enumerate(children)
+    ]
     weights = [_leaf_weight(child, node.main_scale) for child in children]
 
     if node.auto_mode == "best":
@@ -222,9 +220,7 @@ def _leaf_width_over_height(
         raise LayoutError(
             f"Auto layout child at {'.'.join((*path, f'children[{index}]'))} must be a leaf panel"
         )
-    src_w, src_h = _get_image_size_for_layout(
-        node.id, node.file, context="auto layout"
-    )
+    src_w, src_h = _get_image_size_for_layout(node.id, node.file, context="auto layout")
     if src_w <= 0 or src_h <= 0:
         raise LayoutError(
             f"Panel '{node.id}' has non-positive source size for auto layout"
@@ -362,6 +358,92 @@ def _prefix_sums(values: list[float]) -> list[float]:
     return prefix
 
 
+def _resolve_leaf_node(
+    node: LayoutNode,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    panels: List[Panel],
+    path: tuple[str, ...],
+) -> None:
+    """Validate and append a resolved leaf panel."""
+    if width <= 0 or height <= 0:
+        raise LayoutError(
+            f"Leaf node '{node.id}' has non-positive size ({width}x{height}) at {'.'.join(path)}"
+        )
+
+    panels.append(
+        _panel_from_leaf(node, x=x, y=y, width=width, height=height, path=path)
+    )
+
+
+def _container_inner_bounds(
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    margin: float,
+    path: tuple[str, ...],
+) -> tuple[float, float, float, float]:
+    """Return container bounds after applying its inner margin."""
+    inner_x = x + margin
+    inner_y = y + margin
+    inner_w = width - 2 * margin
+    inner_h = height - 2 * margin
+    if inner_w <= 0 or inner_h <= 0:
+        raise LayoutError(
+            f"Container at {'.'.join(path)} has non-positive inner size after margin; reduce container margin"
+        )
+    return inner_x, inner_y, inner_w, inner_h
+
+
+def _resolve_linear_container(
+    node: LayoutNode,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    panels: List[Panel],
+    path: tuple[str, ...],
+) -> None:
+    """Resolve a row/column container by distributing its children on one axis."""
+    children = node.children or []
+    ratios = node.ratios if node.ratios else [1.0] * len(children)
+    total_ratio = sum(ratios)
+    if total_ratio <= 0:
+        raise LayoutError(f"Container at {'.'.join(path)} has non-positive ratio sum")
+
+    is_row = node.type == "row"
+    gap = node.gap
+    total_gap = gap * (len(children) - 1) if len(children) > 1 else 0
+    available = (width if is_row else height) - total_gap
+    if available <= 0:
+        axis = "width" if is_row else "height"
+        raise LayoutError(
+            f"Container at {'.'.join(path)} has non-positive available {axis} after gaps"
+        )
+
+    cursor = x if is_row else y
+    for i, child in enumerate(children):
+        main_size = (ratios[i] / total_ratio) * available
+        child_x = cursor if is_row else x
+        child_y = y if is_row else cursor
+        child_w = main_size if is_row else width
+        child_h = height if is_row else main_size
+
+        _resolve_node(
+            child,
+            child_x,
+            child_y,
+            child_w,
+            child_h,
+            panels,
+            path=(*path, f"children[{i}]"),
+        )
+        cursor += main_size + gap
+
+
 def _resolve_node(
     node: LayoutNode,
     x: float,
@@ -381,67 +463,15 @@ def _resolve_node(
         panels: List to append resolved panels to
     """
     if not node.is_container():
-        # Leaf node: create a panel
-        if width <= 0 or height <= 0:
-            raise LayoutError(
-                f"Leaf node '{node.id}' has non-positive size ({width}x{height}) at {'.'.join(path)}"
-            )
-        panels.append(
-            _panel_from_leaf(node, x=x, y=y, width=width, height=height, path=path)
-        )
+        _resolve_leaf_node(node, x, y, width, height, panels, path)
         return
 
-    # Container node: apply margin and distribute children
-    margin = node.margin
-    inner_x = x + margin
-    inner_y = y + margin
-    inner_w = width - 2 * margin
-    inner_h = height - 2 * margin
-    if inner_w <= 0 or inner_h <= 0:
-        raise LayoutError(
-            f"Container at {'.'.join(path)} has non-positive inner size after margin; reduce container margin"
-        )
+    inner_x, inner_y, inner_w, inner_h = _container_inner_bounds(
+        x, y, width, height, node.margin, path
+    )
 
     if node.type == "auto":
         _resolve_auto(node, inner_x, inner_y, inner_w, inner_h, panels, path)
         return
 
-    children = node.children or []
-    n = len(children)
-
-    # Calculate ratios (default to equal distribution)
-    ratios = node.ratios if node.ratios else [1.0] * n
-    total_ratio = sum(ratios)
-    if total_ratio <= 0:
-        raise LayoutError(f"Container at {'.'.join(path)} has non-positive ratio sum")
-
-    # Calculate available space after gaps
-    gap = node.gap
-    total_gap = gap * (n - 1) if n > 1 else 0
-
-    is_row = node.type == "row"
-    available = (inner_w if is_row else inner_h) - total_gap
-    if available <= 0:
-        axis = "width" if is_row else "height"
-        raise LayoutError(
-            f"Container at {'.'.join(path)} has non-positive available {axis} after gaps"
-        )
-
-    cursor = inner_x if is_row else inner_y
-    for i, child in enumerate(children):
-        main_size = (ratios[i] / total_ratio) * available
-        child_x = cursor if is_row else inner_x
-        child_y = inner_y if is_row else cursor
-        child_w = main_size if is_row else inner_w
-        child_h = inner_h if is_row else main_size
-
-        _resolve_node(
-            child,
-            child_x,
-            child_y,
-            child_w,
-            child_h,
-            panels,
-            path=(*path, f"children[{i}]"),
-        )
-        cursor += main_size + gap
+    _resolve_linear_container(node, inner_x, inner_y, inner_w, inner_h, panels, path)

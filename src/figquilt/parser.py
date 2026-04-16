@@ -120,6 +120,11 @@ def _resolve_asset_path(
 ) -> Path:
     """Resolve an asset path relative to the layout file."""
     resolved = file_path if file_path.is_absolute() else base_dir / file_path
-    if validate_exists and not resolved.exists():
-        raise AssetMissingError(f"Asset for panel '{panel_id}' not found: {resolved}")
+    if validate_exists:
+        if not resolved.exists():
+            raise AssetMissingError(
+                f"Asset for panel '{panel_id}' not found: {resolved}"
+            )
+        if not resolved.is_file():
+            raise LayoutError(f"Asset for panel '{panel_id}' is not a file: {resolved}")
     return resolved

@@ -121,32 +121,48 @@ class LayoutNode(BaseModel):
             raise ValueError("Node cannot be both container and leaf")
 
         if is_container:
-            if not self.children:
-                raise ValueError("Container must have children")
-            if self.type == "auto":
-                if self.ratios is not None:
-                    raise ValueError("Auto container does not support ratios")
-                if any(child.is_container() for child in self.children):
-                    raise ValueError("Auto container children must be leaf panels")
-            else:
-                if self.ratios is not None and len(self.ratios) != len(self.children):
-                    raise ValueError(
-                        f"ratios length ({len(self.ratios)}) must match children length ({len(self.children)})"
-                    )
-                if self.ratios is not None and any(r <= 0 for r in self.ratios):
-                    raise ValueError("All ratios must be > 0")
-        elif is_leaf:
-            if not self.id:
-                raise ValueError("Leaf node must have id")
-            if not self.file:
-                raise ValueError("Leaf node must have file")
-        else:
-            raise ValueError("Node must be either container (type) or leaf (id, file)")
+            self._validate_container_node()
+            return self
 
-        return self
+        if is_leaf:
+            self._validate_leaf_node()
+            return self
+
+        raise ValueError("Node must be either container (type) or leaf (id, file)")
 
     def is_container(self) -> bool:
         return self.type is not None
+
+    def _validate_container_node(self) -> None:
+        if not self.children:
+            raise ValueError("Container must have children")
+
+        if self.type == "auto":
+            self._validate_auto_container()
+            return
+
+        self._validate_ratio_container()
+
+    def _validate_auto_container(self) -> None:
+        if self.ratios is not None:
+            raise ValueError("Auto container does not support ratios")
+        if any(child.is_container() for child in self.children or []):
+            raise ValueError("Auto container children must be leaf panels")
+
+    def _validate_ratio_container(self) -> None:
+        children = self.children or []
+        if self.ratios is not None and len(self.ratios) != len(children):
+            raise ValueError(
+                f"ratios length ({len(self.ratios)}) must match children length ({len(children)})"
+            )
+        if self.ratios is not None and any(r <= 0 for r in self.ratios):
+            raise ValueError("All ratios must be > 0")
+
+    def _validate_leaf_node(self) -> None:
+        if not self.id:
+            raise ValueError("Leaf node must have id")
+        if not self.file:
+            raise ValueError("Leaf node must have file")
 
 
 class Page(BaseModel):
