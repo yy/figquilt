@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any
 import yaml
+from yaml.constructor import ConstructorError
 from pydantic import ValidationError
 from .layout import Layout, iter_panels
 from .errors import LayoutError, AssetMissingError
@@ -13,8 +14,17 @@ def _parse_yaml_with_lines(content: str) -> tuple[Any, dict[tuple, int]]:
     def build_line_map(node: yaml.Node, path: tuple = ()) -> Any:
         if isinstance(node, yaml.MappingNode):
             result = {}
+            seen_keys: set[str] = set()
             for key_node, value_node in node.value:
                 key = key_node.value
+                if key in seen_keys:
+                    raise ConstructorError(
+                        "while constructing a mapping",
+                        node.start_mark,
+                        f"found duplicate key {key!r}",
+                        key_node.start_mark,
+                    )
+                seen_keys.add(key)
                 line_map[(*path, key)] = value_node.start_mark.line + 1
                 result[key] = build_line_map(value_node, (*path, key))
             return result

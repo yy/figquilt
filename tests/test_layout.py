@@ -433,6 +433,37 @@ layout:
         parse_layout(layout_file)
 
 
+def test_duplicate_yaml_keys_raise_error(tmp_path):
+    """Duplicate YAML keys should fail instead of silently overwriting data."""
+    panel_a = tmp_path / "a.pdf"
+    panel_b = tmp_path / "b.pdf"
+    panel_a.touch()
+    panel_b.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 100
+
+panels:
+  - id: A
+    file: {panel_a.name}
+    x: 0
+    y: 0
+    width: 40
+panels:
+  - id: B
+    file: {panel_b.name}
+    x: 50
+    y: 0
+    width: 40
+""")
+
+    with pytest.raises(LayoutError, match=r"duplicate key 'panels'"):
+        parse_layout(layout_file, validate_assets=False)
+
+
 def test_iter_panels_yields_explicit_panels_in_order(tmp_path):
     """iter_panels should preserve declaration order for explicit panels."""
     panel = tmp_path / "panel.pdf"
