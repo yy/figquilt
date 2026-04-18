@@ -355,6 +355,27 @@ class TestWatchMode:
 
         assert len(rebuild_count) >= 1
 
+    def test_watch_mode_ignores_unwatched_file_changes(
+        self, valid_layout_data, tmp_path
+    ):
+        """Watch mode should not rebuild for files outside the watched set."""
+        layout_file, _ = valid_layout_data
+        output_file = tmp_path / "output.pdf"
+        unrelated_file = tmp_path / "unrelated.txt"
+        unrelated_file.write_text("no-op")
+
+        rebuild_count = []
+
+        def mock_compose(*args, **kwargs):
+            rebuild_count.append(1)
+            return True
+
+        run_watch_with_mock_changes(
+            layout_file, output_file, [unrelated_file], mock_compose
+        )
+
+        assert len(rebuild_count) == 1
+
     def test_watch_mode_rebuilds_when_missing_panel_file_is_created(self, tmp_path):
         """Watch mode should rebuild when a previously missing panel file appears."""
         missing_asset = tmp_path / "missing.pdf"

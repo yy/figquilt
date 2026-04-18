@@ -1,18 +1,71 @@
 import argparse
 import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Set, Tuple
 import threading
 from collections.abc import Callable
 
 from .base_composer import validate_panel_sources
-from .parser import parse_layout
 from .errors import FigQuiltError
 from .layout import Layout, Panel, iter_panels
 from .grid import resolve_layout
+from .parser import parse_layout
 
 type Renderer = Callable[[Layout, Path, list[Panel] | None], None]
-type WatchedPaths = tuple[Set[Path], Set[Path]]
+
+
+@dataclass(frozen=True)
+class WatchTargets:
+    """Resolved file and directory targets for watch mode."""
+
+    files: frozenset[Path]
+    dirs: frozenset[Path]
+
+    @classmethod
+    def from_layout(cls, layout_path: Path, layout: Layout) -> "WatchTargets":
+        """Resolve watch targets from a parsed layout."""
+        layout_path = layout_path.resolve()
+        files = {layout_path}
+        try:
+            panels = resolve_layout(layout)
+            for panel in panels:
+                files.add(panel.file.resolve())
+        except FigQuiltError:
+            files.update(_iter_referenced_asset_paths(layout))
+
+        dirs = {_nearest_existing_dir(path.parent) for path in files}
+        return cls(files=frozenset(files), dirs=frozenset(dirs))
+
+    @classmethod
+    def layout_only(cls, layout_path: Path) -> "WatchTargets":
+        """Watch just the layout file and its parent directory."""
+        layout_path = layout_path.resolve()
+        return cls(
+            files=frozenset({layout_path}),
+            dirs=frozenset({layout_path.parent}),
+        )
+
+    @classmethod
+    def load(
+        cls,
+        layout_path: Path,
+        *,
+        validate_assets: bool,
+        fallback_to_layout_only: bool,
+    ) -> "WatchTargets | None":
+        """Parse a layout and derive watch targets, with optional fallback."""
+        try:
+            layout = parse_layout(layout_path, validate_assets=validate_assets)
+            return cls.from_layout(layout_path, layout)
+        except FigQuiltError:
+            if fallback_to_layout_only:
+                return cls.layout_only(layout_path)
+            return None
+
+    def relevant_changes(self, changes: set[tuple[object, str]]) -> set[Path]:
+        """Return changed watched files from a watchfiles change batch."""
+        changed_paths = {Path(changed_path).resolve() for _, changed_path in changes}
+        return changed_paths & self.files
 
 
 def _print_layout_summary(
@@ -87,45 +140,15 @@ def _nearest_existing_dir(path: Path) -> Path:
     return candidate if candidate.is_dir() else candidate.parent
 
 
-def _layout_only_watch_paths(layout_path: Path) -> WatchedPaths:
-    """Watch just the layout file and its parent directory."""
-    layout_path = layout_path.resolve()
-    return {layout_path}, {layout_path.parent}
-
-
-def _load_watched_paths(
-    layout_path: Path,
-    *,
-    validate_assets: bool,
-    fallback_to_layout_only: bool,
-) -> WatchedPaths | None:
-    """Parse a layout and derive the file and directory watch targets."""
-    try:
-        layout = parse_layout(layout_path, validate_assets=validate_assets)
-        return get_watched_paths(layout_path, layout)
-    except FigQuiltError:
-        if fallback_to_layout_only:
-            return _layout_only_watch_paths(layout_path)
-        return None
-
-
-def get_watched_paths(layout_path: Path, layout: Layout) -> Tuple[Set[Path], Set[Path]]:
+def get_watched_paths(layout_path: Path, layout: Layout) -> tuple[set[Path], set[Path]]:
     """
     Return the set of files and directories to watch.
 
     Returns:
         Tuple of (watched_files, watched_dirs)
     """
-    layout_path = layout_path.resolve()
-    files = {layout_path}
-    try:
-        panels = resolve_layout(layout)
-        for panel in panels:
-            files.add(panel.file.resolve())
-    except FigQuiltError:
-        files.update(_iter_referenced_asset_paths(layout))
-    dirs = {_nearest_existing_dir(f.parent) for f in files}
-    return files, dirs
+    targets = WatchTargets.from_layout(layout_path, layout)
+    return set(targets.files), set(targets.dirs)
 
 
 def compose_figure(
@@ -167,7 +190,7 @@ def run_watch_mode(
     output_path: Path,
     fmt: str,
     verbose: bool,
-    stop_event: Optional[threading.Event] = None,
+    stop_event: threading.Event | None = None,
 ) -> None:
     """
     Watch layout and panel files for changes and rebuild on each change.
@@ -190,24 +213,22 @@ def run_watch_mode(
         print("Initial build failed, watching for changes...")
 
     # Get initial set of watched files and directories
-    watched_paths = _load_watched_paths(
+    watch_targets = WatchTargets.load(
         layout_path,
         validate_assets=False,
         fallback_to_layout_only=True,
     )
-    assert watched_paths is not None
-    watched_files, watch_dirs = watched_paths
+    assert watch_targets is not None
 
     while True:
         restart_watcher = False
 
-        for changes in watch(*watch_dirs, stop_event=stop_event):
+        for changes in watch(*watch_targets.dirs, stop_event=stop_event):
             if stop_event and stop_event.is_set():
                 return
 
             # Check if any changed file is in our watched set
-            changed_paths = {Path(change[1]).resolve() for change in changes}
-            relevant_changes = changed_paths & watched_files
+            relevant_changes = watch_targets.relevant_changes(changes)
 
             if relevant_changes:
                 if verbose:
@@ -223,22 +244,20 @@ def run_watch_mode(
                 # Refresh watch targets from the latest layout even if the rebuild
                 # failed, so newly referenced missing assets can still trigger
                 # another rebuild when they appear.
-                refreshed_paths = _load_watched_paths(
+                refreshed_targets = WatchTargets.load(
                     layout_path,
                     validate_assets=False,
                     fallback_to_layout_only=True,
                 )
-                assert refreshed_paths is not None
-                new_files, new_dirs = refreshed_paths
-                if new_dirs != watch_dirs:
+                assert refreshed_targets is not None
+                if refreshed_targets.dirs != watch_targets.dirs:
                     # Directories changed, need to restart the watcher
-                    watched_files = new_files
-                    watch_dirs = new_dirs
+                    watch_targets = refreshed_targets
                     restart_watcher = True
                     if verbose:
                         print("Watch directories changed, restarting watcher...")
                     break
-                watched_files = new_files
+                watch_targets = refreshed_targets
 
         if stop_event and stop_event.is_set():
             return
