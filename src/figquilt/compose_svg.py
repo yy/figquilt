@@ -9,6 +9,13 @@ from .base_composer import BaseComposer
 from .layout import Panel
 from .units import to_pt
 
+_EMBEDDED_MIME_TYPES = {
+    ".svg": "image/svg+xml",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+}
+
 
 class SVGComposer(BaseComposer):
     def compose(self, output_path: Path) -> None:
@@ -74,7 +81,9 @@ class SVGComposer(BaseComposer):
                 image_parent = g
 
             # Embed content
-            self._embed_content(image_parent, panel, content_rect, resolved.source.doc[0])
+            self._embed_content(
+                image_parent, panel, content_rect, resolved.source.doc[0]
+            )
 
             # Draw label on the outer group so it isn't clipped
             self._draw_label(g, panel, index)
@@ -87,35 +96,39 @@ class SVGComposer(BaseComposer):
         src_page,
     ) -> None:
         """Embed the source content into the SVG group."""
-        suffix = panel.file.suffix.lower()
-
-        if suffix == ".svg":
-            data_uri = self._get_data_uri(panel.file, "image/svg+xml")
-        elif suffix in [".jpg", ".jpeg"]:
-            data_uri = self._get_data_uri(panel.file, "image/jpeg")
-        elif suffix == ".png":
-            data_uri = self._get_data_uri(panel.file, "image/png")
-        elif suffix == ".pdf":
-            # Rasterize PDF page to PNG
-            pix = src_page.get_pixmap(dpi=self.layout.page.dpi)
-            data = pix.tobytes("png")
-            b64 = base64.b64encode(data).decode("utf-8")
-            data_uri = f"data:image/png;base64,{b64}"
-        else:
-            # Fallback for unknown types
-            data_uri = self._get_data_uri(panel.file, "application/octet-stream")
-
         img = etree.SubElement(g, "image")
         img.set("x", str(content_rect.offset_x))
         img.set("y", str(content_rect.offset_y))
         img.set("width", str(content_rect.width))
         img.set("height", str(content_rect.height))
-        img.set("{http://www.w3.org/1999/xlink}href", data_uri)
+        img.set(
+            "{http://www.w3.org/1999/xlink}href",
+            self._data_uri_for_panel_source(panel, src_page),
+        )
 
-    def _get_data_uri(self, path: Path, mime: str) -> str:
+    def _data_uri_for_panel_source(self, panel: Panel, src_page) -> str:
+        """Return the data URI used to embed a panel source in the output SVG."""
+        if panel.file.suffix.lower() == ".pdf":
+            return self._pdf_page_data_uri(src_page)
+
+        mime = _EMBEDDED_MIME_TYPES.get(
+            panel.file.suffix.lower(), "application/octet-stream"
+        )
+        return self._file_data_uri(panel.file, mime)
+
+    def _pdf_page_data_uri(self, src_page) -> str:
+        """Rasterize a PDF page and return it as a PNG data URI."""
+        pix = src_page.get_pixmap(dpi=self.layout.page.dpi)
+        return self._encode_data_uri(pix.tobytes("png"), "image/png")
+
+    def _file_data_uri(self, path: Path, mime: str) -> str:
         """Read file and encode as data URI."""
         with open(path, "rb") as f:
-            data = f.read()
+            return self._encode_data_uri(f.read(), mime)
+
+    @staticmethod
+    def _encode_data_uri(data: bytes, mime: str) -> str:
+        """Encode raw bytes as a data URI."""
         b64 = base64.b64encode(data).decode("utf-8")
         return f"data:{mime};base64,{b64}"
 

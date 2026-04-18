@@ -143,6 +143,26 @@ def test_svg_pdf_rasterization_uses_page_dpi(tmp_path, dummy_assets, monkeypatch
     assert 123 in seen_dpi
 
 
+def test_compose_jpeg_to_svg_uses_jpeg_data_uri(tmp_path):
+    jpeg = tmp_path / "panel.jpeg"
+    Image.new("RGB", (100, 100), color="purple").save(jpeg, format="JPEG")
+
+    layout_data = {
+        "page": {"width": 50, "height": 50},
+        "panels": [{"id": "A", "file": str(jpeg), "x": 0, "y": 0, "width": 50}],
+    }
+    layout_file = tmp_path / "layout_jpeg.yaml"
+    with open(layout_file, "w") as f:
+        yaml.dump(layout_data, f)
+
+    layout = parse_layout(layout_file)
+
+    out_svg = tmp_path / "fig_jpeg.svg"
+    SVGComposer(layout).compose(out_svg)
+
+    assert "data:image/jpeg" in out_svg.read_text()
+
+
 def test_svg_cover_mode_keeps_label_inside_panel_cell(tmp_path):
     """SVG cover-mode labels should anchor to the panel cell, not cropped content."""
     wide_pdf = tmp_path / "wide.pdf"
