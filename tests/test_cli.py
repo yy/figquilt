@@ -923,6 +923,20 @@ class TestColorParsing:
         assert composer.parse_color("notacolor") is None
         assert composer.parse_color("#gg0000") is None
 
+    def test_parse_color_normalizes_opaque_rgba_and_rejects_transparency(self):
+        """RGBA-like color sources should only be accepted when fully opaque."""
+        from figquilt.compose_pdf import PDFComposer
+        from figquilt.layout import Layout, Page
+
+        layout = Layout(page=Page(width=100, height=100), panels=[])
+        composer = PDFComposer(layout)
+
+        with patch("PIL.ImageColor.getrgb", return_value=(255, 0, 0, 255)):
+            assert composer.parse_color("red") == pytest.approx((1.0, 0.0, 0.0))
+
+        with patch("PIL.ImageColor.getrgb", return_value=(255, 0, 0, 128)):
+            assert composer.parse_color("red") is None
+
 
 def test_auto_label_sequence_continues_after_z():
     """Auto-generated labels should continue as AA, AB, ... after Z."""

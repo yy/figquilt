@@ -245,6 +245,23 @@ class BaseComposer(ABC):
             value -= 1
         return "".join(reversed(chars))
 
+    @staticmethod
+    def _normalize_rgb_channels(
+        channels: tuple[int, ...],
+    ) -> tuple[float, float, float] | None:
+        """Normalize opaque RGB(A) channels to 0-1 floats."""
+        if len(channels) == 4:
+            red, green, blue, alpha = channels
+            if alpha != 255:
+                return None
+            channels = (red, green, blue)
+
+        if len(channels) != 3:
+            return None
+
+        red, green, blue = channels
+        return (red / 255.0, green / 255.0, blue / 255.0)
+
     def parse_color(self, color_str: str) -> tuple[float, float, float] | None:
         """
         Parse a color string to RGB tuple (0-1 range).
@@ -264,15 +281,14 @@ class BaseComposer(ABC):
             elif len(h) != 6:
                 return None
             try:
-                rgb = tuple(int(h[i : i + 2], 16) / 255.0 for i in (0, 2, 4))
-                return rgb  # type: ignore
+                channels = tuple(int(h[i : i + 2], 16) for i in (0, 2, 4))
+                return self._normalize_rgb_channels(channels)
             except (ValueError, IndexError):
                 return None
 
         try:
             from PIL import ImageColor
 
-            rgb = ImageColor.getrgb(color_str)
-            return tuple(c / 255.0 for c in rgb)  # type: ignore
+            return self._normalize_rgb_channels(ImageColor.getrgb(color_str))
         except (ValueError, ImportError):
             return None
