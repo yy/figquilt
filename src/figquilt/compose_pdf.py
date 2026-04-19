@@ -8,7 +8,7 @@ import fitz
 
 from .base_composer import BaseComposer
 from .layout import Panel
-from .units import alignment_factors, to_pt
+from .units import alignment_factors
 
 # PyMuPDF font name mappings
 _FONT_REGULAR = "helv"  # Helvetica
@@ -85,7 +85,11 @@ class PDFComposer(BaseComposer):
         page.insert_image(rect, filename=panel.file)
 
     def _embed_cover(
-        self, page: fitz.Page, cell_rect: fitz.Rect, src_doc: fitz.Document, panel: Panel
+        self,
+        page: fitz.Page,
+        cell_rect: fitz.Rect,
+        src_doc: fitz.Document,
+        panel: Panel,
     ) -> None:
         """Embed content in cover mode by clipping to the panel cell."""
         with self._open_vector_source(src_doc, panel) as vector_doc:
@@ -135,21 +139,26 @@ class PDFComposer(BaseComposer):
         self, page: fitz.Page, panel: Panel, rect: fitz.Rect, index: int
     ) -> None:
         """Draw the label for a panel."""
-        text = self.get_label_text(panel, index)
-        if not text:
+        label_info = self.resolve_label_draw_info(
+            panel,
+            index,
+            origin_x=rect.x0,
+            origin_y=rect.y0,
+            use_font_baseline=True,
+        )
+        if label_info is None:
             return
 
-        style = self.get_label_style(panel)
-
-        # Position: offset relative to top-left of content rect
-        # PyMuPDF uses baseline positioning, so add font_size to Y
-        pos_x = rect.x0 + to_pt(style.offset_x, self.units)
-        pos_y = rect.y0 + to_pt(style.offset_y, self.units) + style.font_size_pt
-
-        fontname = self._resolve_font_name(style.font_family, bold=style.bold)
+        fontname = self._resolve_font_name(
+            label_info.style.font_family,
+            bold=label_info.style.bold,
+        )
 
         page.insert_text(
-            (pos_x, pos_y), text, fontsize=style.font_size_pt, fontname=fontname
+            (label_info.x, label_info.y),
+            label_info.text,
+            fontsize=label_info.style.font_size_pt,
+            fontname=fontname,
         )
 
     @staticmethod

@@ -6,7 +6,8 @@ import pytest
 
 from figquilt.base_composer import SourceInfo, open_panel_source, validate_panel_sources
 from figquilt.compose_pdf import PDFComposer
-from figquilt.layout import Layout, Page, Panel
+from figquilt.layout import LabelStyle, Layout, Page, Panel
+from figquilt.units import to_pt
 
 
 def test_calculate_panel_geometry_derives_implicit_height_from_aspect_ratio():
@@ -133,3 +134,53 @@ def test_resolved_panel_source_closes_document_when_geometry_fails():
                 pass
 
     mock_doc.close.assert_called_once()
+
+
+def test_resolve_label_draw_info_returns_absolute_coordinates_with_baseline():
+    panel = Panel(id="A", file=Path("dummy.pdf"), x=0, y=0, width=20, label="a")
+    layout = Layout(page=Page(width=100, height=100, units="mm"), panels=[panel])
+    composer = PDFComposer(layout, panels=[panel])
+
+    label = composer.resolve_label_draw_info(
+        panel,
+        index=0,
+        origin_x=10.0,
+        origin_y=20.0,
+        use_font_baseline=True,
+    )
+
+    assert label is not None
+    assert label.text == "A"
+    assert label.style == layout.page.label
+    assert label.x == pytest.approx(10.0 + to_pt(layout.page.label.offset_x, "mm"))
+    assert label.y == pytest.approx(
+        20.0 + to_pt(layout.page.label.offset_y, "mm") + layout.page.label.font_size_pt
+    )
+
+
+def test_resolve_label_draw_info_inherits_partial_panel_label_style():
+    panel = Panel(
+        id="A",
+        file=Path("dummy.pdf"),
+        x=0,
+        y=0,
+        width=20,
+        label="panel a",
+        label_style=LabelStyle(font_size_pt=12),
+    )
+    page_label = LabelStyle(font_family="Courier", bold=False, uppercase=False)
+    layout = Layout(
+        page=Page(width=100, height=100, units="pt", label=page_label),
+        panels=[panel],
+    )
+    composer = PDFComposer(layout, panels=[panel])
+
+    label = composer.resolve_label_draw_info(panel, index=0)
+
+    assert label is not None
+    assert label.text == "panel a"
+    assert label.style.font_family == "Courier"
+    assert label.style.font_size_pt == pytest.approx(12.0)
+    assert label.style.bold is False
+    assert label.x == pytest.approx(2.0)
+    assert label.y == pytest.approx(2.0)

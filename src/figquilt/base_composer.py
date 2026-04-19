@@ -55,6 +55,15 @@ class ResolvedPanelSource(NamedTuple):
     geometry: PanelGeometry
 
 
+class LabelDrawInfo(NamedTuple):
+    """Resolved label content, style, and draw coordinates."""
+
+    text: str
+    style: LabelStyle
+    x: float
+    y: float
+
+
 def open_panel_source(panel: Panel) -> SourceInfo:
     """
     Open a panel source file and return its document plus aspect ratio.
@@ -229,6 +238,28 @@ class BaseComposer(ABC):
 
         override = panel.label_style.model_dump(exclude_unset=True)
         return base_style.model_copy(update=override)
+
+    def resolve_label_draw_info(
+        self,
+        panel: Panel,
+        index: int,
+        *,
+        origin_x: float = 0.0,
+        origin_y: float = 0.0,
+        use_font_baseline: bool = False,
+    ) -> LabelDrawInfo | None:
+        """Return resolved label text, style, and draw coordinates for a panel."""
+        text = self.get_label_text(panel, index)
+        if not text:
+            return None
+
+        style = self.get_label_style(panel)
+        x = origin_x + to_pt(style.offset_x, self.units)
+        y = origin_y + to_pt(style.offset_y, self.units)
+        if use_font_baseline:
+            y += style.font_size_pt
+
+        return LabelDrawInfo(text=text, style=style, x=x, y=y)
 
     @staticmethod
     def _index_to_label(index: int) -> str:

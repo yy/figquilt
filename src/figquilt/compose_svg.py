@@ -7,7 +7,6 @@ from lxml import etree
 
 from .base_composer import BaseComposer
 from .layout import Panel
-from .units import to_pt
 
 _EMBEDDED_MIME_TYPES = {
     ".svg": "image/svg+xml",
@@ -139,24 +138,18 @@ class SVGComposer(BaseComposer):
         index: int,
     ) -> None:
         """Draw the label for a panel."""
-        text_str = self.get_label_text(panel, index)
-        if not text_str:
+        label_info = self.resolve_label_draw_info(panel, index)
+        if label_info is None:
             return
 
-        style = self.get_label_style(panel)
-
-        # The parent group is already translated to the panel cell origin.
-        x = to_pt(style.offset_x, self.units)
-        y = to_pt(style.offset_y, self.units)
-
         txt = etree.SubElement(parent, "text")
-        txt.text = text_str
-        txt.set("x", str(x))
-        txt.set("y", str(y))
-        txt.set("font-family", style.font_family)
-        txt.set("font-size", f"{style.font_size_pt}pt")
+        txt.text = label_info.text
+        txt.set("x", str(label_info.x))
+        txt.set("y", str(label_info.y))
+        txt.set("font-family", label_info.style.font_family)
+        txt.set("font-size", f"{label_info.style.font_size_pt}pt")
 
-        if style.bold:
+        if label_info.style.bold:
             txt.set("font-weight", "bold")
 
         # Use hanging baseline so (x, y) is top-left of text
