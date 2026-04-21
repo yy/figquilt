@@ -6,12 +6,14 @@ from pydantic import ValidationError
 from .layout import Layout, iter_panels
 from .errors import LayoutError, AssetMissingError
 
+LocationPath = tuple[str | int, ...]
 
-def _parse_yaml_with_lines(content: str) -> tuple[Any, dict[tuple, int]]:
+
+def _parse_yaml_with_lines(content: str) -> tuple[Any, dict[LocationPath, int]]:
     """Parse YAML and return data along with a mapping of paths to line numbers."""
-    line_map: dict[tuple, int] = {}
+    line_map: dict[LocationPath, int] = {}
 
-    def build_line_map(node: yaml.Node, path: tuple = ()) -> Any:
+    def build_line_map(node: yaml.Node, path: LocationPath = ()) -> Any:
         if isinstance(node, yaml.MappingNode):
             result = {}
             seen_keys: set[str] = set()
@@ -48,16 +50,34 @@ def _parse_yaml_with_lines(content: str) -> tuple[Any, dict[tuple, int]]:
         loader.dispose()
 
 
-def _get_line_for_path(line_map: dict[tuple, int], path_str: str) -> int | None:
-    """Convert a Pydantic error path like 'panels.0.y' to a line number."""
-    parts: list[str | int] = []
-    for part in path_str.split("."):
-        if part.isdigit():
-            parts.append(int(part))
-        else:
-            parts.append(part)
+def _get_line_for_location(
+    line_map: dict[LocationPath, int], loc: tuple[Any, ...]
+) -> int | None:
+    """Map a structured Pydantic error location to a YAML line number."""
+    path: list[str | int] = []
+    for part in loc:
+        if isinstance(part, (str, int)):
+            path.append(part)
+            continue
+        return None
+    return line_map.get(tuple(path))
 
-    return line_map.get(tuple(parts))
+
+def _format_validation_errors(
+    error: ValidationError, line_map: dict[LocationPath, int]
+) -> str:
+    """Format Pydantic validation errors, adding YAML line numbers when available."""
+    formatted_errors = []
+    for details in error.errors():
+        loc = details["loc"]
+        loc_str = ".".join(str(part) for part in loc)
+        line = _get_line_for_location(line_map, loc)
+        msg = details["msg"]
+        if line:
+            formatted_errors.append(f"  {loc_str} (line {line}): {msg}")
+        else:
+            formatted_errors.append(f"  {loc_str}: {msg}")
+    return "Layout validation failed:\n" + "\n".join(formatted_errors)
 
 
 def parse_layout(layout_path: Path, *, validate_assets: bool = True) -> Layout:
@@ -91,17 +111,7 @@ def parse_layout(layout_path: Path, *, validate_assets: bool = True) -> Layout:
     try:
         layout = Layout(**data)
     except ValidationError as e:
-        # Try to add line numbers to validation errors
-        errors_with_lines = []
-        for error in e.errors():
-            loc = ".".join(str(p) for p in error["loc"])
-            line = _get_line_for_path(line_map, loc)
-            msg = error["msg"]
-            if line:
-                errors_with_lines.append(f"  {loc} (line {line}): {msg}")
-            else:
-                errors_with_lines.append(f"  {loc}: {msg}")
-        raise LayoutError("Layout validation failed:\n" + "\n".join(errors_with_lines))
+        raise LayoutError(_format_validation_errors(e, line_map)) from e
     except Exception as e:
         raise LayoutError(f"Layout validation failed: {e}")
 

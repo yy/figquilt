@@ -105,6 +105,37 @@ panels:
     assert "line 8" in str(exc_info.value)
 
 
+def test_nested_validation_error_includes_sequence_item_line_number(tmp_path):
+    """Nested list validation should report the specific YAML item line."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 180
+  height: 100
+
+layout:
+  type: row
+  children:
+    - id: A
+      file: {panel.name}
+    - id: B
+      file: {panel.name}
+  ratios:
+    - 1
+    - not_a_number
+""")
+
+    with pytest.raises(LayoutError) as exc_info:
+        parse_layout(layout_file)
+
+    message = str(exc_info.value)
+    assert "layout.ratios.1" in message
+    assert "line 14" in message
+
+
 # Grid layout tests
 
 

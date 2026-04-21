@@ -172,6 +172,40 @@ class TestComposeFigure:
 
         assert result is False
 
+    def test_compose_figure_reports_missing_output_directory(self, tmp_path, capsys):
+        """Missing output directories should raise a clean user-facing error."""
+        panel_file = tmp_path / "panel.pdf"
+        doc = fitz.open()
+        doc.new_page(width=100, height=100)
+        doc.save(panel_file)
+        doc.close()
+
+        layout_file = tmp_path / "layout.yaml"
+        layout_file.write_text(
+            yaml.dump(
+                {
+                    "page": {"width": 100, "height": 100, "units": "mm"},
+                    "panels": [
+                        {
+                            "id": "A",
+                            "file": panel_file.name,
+                            "x": 0,
+                            "y": 0,
+                            "width": 50,
+                        }
+                    ],
+                }
+            )
+        )
+        output_file = tmp_path / "missing" / "output.pdf"
+
+        result = compose_figure(layout_file, output_file, fmt="pdf", verbose=False)
+        captured = capsys.readouterr()
+
+        assert result is False
+        assert "Error: Output directory does not exist" in captured.err
+        assert "Unexpected error" not in captured.err
+
     def test_compose_figure_reports_non_positive_source_size(self, tmp_path, capsys):
         """Malformed sources with zero geometry should be reported cleanly."""
         asset_file = tmp_path / "zero_width.svg"

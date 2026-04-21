@@ -6,7 +6,7 @@ import threading
 from collections.abc import Callable
 
 from .base_composer import validate_panel_sources
-from .errors import FigQuiltError
+from .errors import FigQuiltError, OutputPathError
 from .layout import Layout, Panel, iter_panels
 from .grid import resolve_layout
 from .parser import parse_layout
@@ -151,6 +151,15 @@ def get_watched_paths(layout_path: Path, layout: Layout) -> tuple[set[Path], set
     return set(targets.files), set(targets.dirs)
 
 
+def _validate_output_path(output_path: Path) -> None:
+    """Fail fast when the requested output directory is not writable as a path."""
+    parent = output_path.parent
+    if not parent.exists():
+        raise OutputPathError(f"Output directory does not exist: {parent}")
+    if not parent.is_dir():
+        raise OutputPathError(f"Output path parent is not a directory: {parent}")
+
+
 def compose_figure(
     layout_path: Path, output_path: Path, fmt: str, verbose: bool
 ) -> bool:
@@ -165,6 +174,7 @@ def compose_figure(
             print(f"Unsupported format: {fmt}", file=sys.stderr)
             return False
 
+        _validate_output_path(output_path)
         layout = parse_layout(layout_path)
         panels: list[Panel] | None = None
         if verbose:
