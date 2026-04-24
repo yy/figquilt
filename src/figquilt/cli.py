@@ -14,6 +14,35 @@ from .parser import parse_layout
 type Renderer = Callable[[Layout, Path, list[Panel] | None], None]
 
 
+@dataclass
+class PreparedLayout:
+    """Parsed layout plus lazily cached resolved panels for CLI flows."""
+
+    path: Path
+    layout: Layout
+    _resolved_panels: list[Panel] | None = None
+
+    @classmethod
+    def load(cls, layout_path: Path) -> "PreparedLayout":
+        """Parse a layout file without eagerly resolving panel geometry."""
+        return cls(path=layout_path, layout=parse_layout(layout_path))
+
+    def resolved_panels(self) -> list[Panel]:
+        """Resolve panel geometry once and reuse it across CLI steps."""
+        if self._resolved_panels is None:
+            self._resolved_panels = resolve_layout(self.layout)
+        return self._resolved_panels
+
+    def print_summary(self, *, prefix: str) -> None:
+        """Print a short summary using the cached resolved panel list."""
+        _print_layout_summary(
+            self.path,
+            self.layout,
+            len(self.resolved_panels()),
+            prefix=prefix,
+        )
+
+
 @dataclass(frozen=True)
 class WatchTargets:
     """Resolved file and directory targets for watch mode."""
@@ -61,6 +90,15 @@ class WatchTargets:
             if fallback_to_layout_only:
                 return cls.layout_only(layout_path)
             return None
+
+    def including_path(self, path: Path) -> "WatchTargets":
+        """Track an extra path and the nearest existing directory for its events."""
+        resolved_path = path.resolve()
+        files = set(self.files)
+        dirs = set(self.dirs)
+        files.add(resolved_path)
+        dirs.add(_nearest_existing_dir(resolved_path))
+        return type(self)(files=frozenset(files), dirs=frozenset(dirs))
 
     def relevant_changes(self, changes: set[tuple[object, str]]) -> set[Path]:
         """Return changed watched files from a watchfiles change batch."""
@@ -151,6 +189,16 @@ def get_watched_paths(layout_path: Path, layout: Layout) -> tuple[set[Path], set
     return set(targets.files), set(targets.dirs)
 
 
+def _watch_targets_for_output_path(
+    watch_targets: WatchTargets, output_path: Path
+) -> WatchTargets:
+    """Track creation of an invalid output parent so watch mode can recover."""
+    output_parent = output_path.parent.resolve()
+    if output_parent.exists() and output_parent.is_dir():
+        return watch_targets
+    return watch_targets.including_path(output_parent)
+
+
 def _validate_output_path(output_path: Path) -> None:
     """Fail fast when the requested output directory is not writable as a path."""
     parent = output_path.parent
@@ -175,15 +223,13 @@ def compose_figure(
             return False
 
         _validate_output_path(output_path)
-        layout = parse_layout(layout_path)
+        prepared_layout = PreparedLayout.load(layout_path)
         panels: list[Panel] | None = None
         if verbose:
-            panels = resolve_layout(layout)
-            _print_layout_summary(
-                layout_path, layout, len(panels), prefix="Layout parsed"
-            )
+            panels = prepared_layout.resolved_panels()
+            prepared_layout.print_summary(prefix="Layout parsed")
 
-        renderer(layout, output_path, panels)
+        renderer(prepared_layout.layout, output_path, panels)
 
         return True
 
@@ -229,6 +275,7 @@ def run_watch_mode(
         fallback_to_layout_only=True,
     )
     assert watch_targets is not None
+    watch_targets = _watch_targets_for_output_path(watch_targets, output_path)
 
     while True:
         restart_watcher = False
@@ -260,6 +307,9 @@ def run_watch_mode(
                     fallback_to_layout_only=True,
                 )
                 assert refreshed_targets is not None
+                refreshed_targets = _watch_targets_for_output_path(
+                    refreshed_targets, output_path
+                )
                 if refreshed_targets.dirs != watch_targets.dirs:
                     # Directories changed, need to restart the watcher
                     watch_targets = refreshed_targets
@@ -300,15 +350,10 @@ def main():
     # Check-only mode
     if args.check:
         try:
-            layout = parse_layout(args.layout)
-            panels = resolve_layout(layout)
+            prepared_layout = PreparedLayout.load(args.layout)
+            panels = prepared_layout.resolved_panels()
             validate_panel_sources(panels)
-            _print_layout_summary(
-                args.layout,
-                layout,
-                len(panels),
-                prefix="Layout parsed successfully",
-            )
+            prepared_layout.print_summary(prefix="Layout parsed successfully")
             sys.exit(0)
         except FigQuiltError as e:
             print(f"Error: {e}", file=sys.stderr)

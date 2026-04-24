@@ -8,7 +8,7 @@ import threading
 from typing import List, Callable
 from pathlib import Path
 
-from figquilt.cli import compose_figure, run_watch_mode
+from figquilt.cli import PreparedLayout, compose_figure, run_watch_mode
 from figquilt.layout import Layout, Page, Panel
 
 
@@ -254,6 +254,52 @@ class TestComposeFigure:
         assert output_file.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
 
+class TestPreparedLayout:
+    """Tests for shared CLI layout preparation helpers."""
+
+    @staticmethod
+    def _make_layout() -> Layout:
+        return Layout(
+            page=Page(width=100, height=100, units="mm"),
+            panels=[
+                Panel(
+                    id="A",
+                    file=Path("panel.pdf"),
+                    x=0,
+                    y=0,
+                    width=50,
+                )
+            ],
+        )
+
+    def test_resolved_panels_is_lazy_and_cached(self):
+        """Resolved panels should only be computed once per prepared layout."""
+        layout = self._make_layout()
+        prepared = PreparedLayout(path=Path("layout.yaml"), layout=layout)
+        resolved_panels = list(layout.panels or [])
+
+        with patch("figquilt.cli.resolve_layout", return_value=resolved_panels) as mock:
+            assert prepared.resolved_panels() == resolved_panels
+            assert prepared.resolved_panels() == resolved_panels
+
+        mock.assert_called_once_with(layout)
+
+    def test_print_summary_reuses_cached_panels(self, capsys):
+        """Printing the layout summary should reuse the cached panel list."""
+        layout = self._make_layout()
+        prepared = PreparedLayout(path=Path("layout.yaml"), layout=layout)
+        resolved_panels = list(layout.panels or [])
+
+        with patch("figquilt.cli.resolve_layout", return_value=resolved_panels) as mock:
+            prepared.print_summary(prefix="Layout parsed")
+            prepared.print_summary(prefix="Layout parsed")
+
+        captured = capsys.readouterr()
+        assert "Layout parsed: layout.yaml" in captured.out
+        assert "Panels: 1" in captured.out
+        mock.assert_called_once_with(layout)
+
+
 class TestWatchMode:
     """Tests for the --watch mode functionality."""
 
@@ -461,6 +507,45 @@ class TestWatchMode:
         watcher_thread.join(timeout=2)
 
         # Initial build + rebuild when the asset appears.
+        assert len(rebuild_count) >= 2
+
+    def test_watch_mode_rebuilds_when_output_directory_is_created(
+        self, valid_layout_data, tmp_path
+    ):
+        """Watch mode should retry once a missing output directory appears."""
+        layout_file, _ = valid_layout_data
+        output_dir = tmp_path / "missing"
+        output_file = output_dir / "output.pdf"
+        stop_event = threading.Event()
+        rebuild_count = []
+
+        def mock_compose(*args, **kwargs):
+            rebuild_count.append(1)
+            return len(rebuild_count) > 1
+
+        def run_watcher():
+            with patch("figquilt.cli.compose_figure", side_effect=mock_compose):
+                with patch("watchfiles.watch") as mock_watch:
+
+                    def fake_watch(*args, **kwargs):
+                        output_dir.mkdir()
+                        yield {(1, str(output_dir))}
+                        stop_event.set()
+
+                    mock_watch.side_effect = fake_watch
+                    run_watch_mode(
+                        layout_file,
+                        output_file,
+                        fmt="pdf",
+                        verbose=False,
+                        stop_event=stop_event,
+                    )
+
+        watcher_thread = threading.Thread(target=run_watcher)
+        watcher_thread.start()
+        watcher_thread.join(timeout=2)
+
+        # Initial build failure, then a rebuild once the output directory exists.
         assert len(rebuild_count) >= 2
 
     def test_watch_mode_tracks_new_missing_asset_after_layout_change(self, tmp_path):
