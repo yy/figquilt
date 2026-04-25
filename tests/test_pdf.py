@@ -1,7 +1,7 @@
 import pytest
 import fitz
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from figquilt.compose_pdf import PDFComposer
 import yaml
 
@@ -209,6 +209,55 @@ def test_pdf_composer_uses_pre_resolved_panels():
         assert composer.get_panels() is panels
 
     mock_resolve.assert_not_called()
+
+
+def test_pdf_composer_render_png_uses_layout_dpi_and_closes_document(tmp_path):
+    """PNG rendering should use the page DPI and close the temporary document."""
+    from figquilt.layout import Layout, Page, Panel
+
+    panel = Panel(id="A", file=Path("dummy.pdf"), x=0, y=0, width=50)
+    layout = Layout(
+        page=Page(width=100, height=100, units="pt", dpi=144),
+        panels=[panel],
+    )
+    composer = PDFComposer(layout, panels=[panel])
+    output_file = tmp_path / "output.png"
+
+    mock_doc = MagicMock()
+    mock_page = MagicMock()
+    mock_pix = MagicMock()
+    mock_doc.__getitem__.return_value = mock_page
+    mock_page.get_pixmap.return_value = mock_pix
+    mock_pix.tobytes.return_value = b"png-bytes"
+
+    with patch.object(composer, "build", return_value=mock_doc):
+        composer.render_png(output_file)
+
+    mock_page.get_pixmap.assert_called_once_with(dpi=144)
+    assert output_file.read_bytes() == b"png-bytes"
+    mock_doc.close.assert_called_once()
+
+
+def test_pdf_composer_render_png_closes_document_on_pixmap_failure(tmp_path):
+    """PNG rendering should close the temporary document even if rasterization fails."""
+    from figquilt.layout import Layout, Page, Panel
+
+    panel = Panel(id="A", file=Path("dummy.pdf"), x=0, y=0, width=50)
+    layout = Layout(page=Page(width=100, height=100, units="pt"), panels=[panel])
+    composer = PDFComposer(layout, panels=[panel])
+    output_file = tmp_path / "output.png"
+
+    mock_doc = MagicMock()
+    mock_page = MagicMock()
+    mock_doc.__getitem__.return_value = mock_page
+    mock_page.get_pixmap.side_effect = RuntimeError("raster failed")
+
+    with patch.object(composer, "build", return_value=mock_doc):
+        with pytest.raises(RuntimeError, match="raster failed"):
+            composer.render_png(output_file)
+
+    assert not output_file.exists()
+    mock_doc.close.assert_called_once()
 
 
 def testparse_color_valid_hex(tmp_path, dummy_pdf):

@@ -139,13 +139,7 @@ def _compose_png(
     """Render a layout to PNG via an intermediate PDF document."""
     from .compose_pdf import PDFComposer
 
-    doc = PDFComposer(layout, panels=panels).build()
-    try:
-        page = doc[0]
-        pix = page.get_pixmap(dpi=layout.page.dpi)
-        output_path.write_bytes(pix.tobytes("png"))
-    finally:
-        doc.close()
+    PDFComposer(layout, panels=panels).render_png(output_path)
 
 
 _RENDERERS: dict[str, Renderer] = {
@@ -206,6 +200,8 @@ def _validate_output_path(output_path: Path) -> None:
         raise OutputPathError(f"Output directory does not exist: {parent}")
     if not parent.is_dir():
         raise OutputPathError(f"Output path parent is not a directory: {parent}")
+    if output_path.exists() and output_path.is_dir():
+        raise OutputPathError(f"Output path is a directory: {output_path}")
 
 
 def compose_figure(

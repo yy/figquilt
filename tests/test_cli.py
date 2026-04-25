@@ -206,6 +206,23 @@ class TestComposeFigure:
         assert "Error: Output directory does not exist" in captured.err
         assert "Unexpected error" not in captured.err
 
+    def test_compose_figure_rejects_directory_output_path(
+        self, valid_layout_data, tmp_path, capsys
+    ):
+        """Existing directories should not be silently replaced by output files."""
+        layout_file, _ = valid_layout_data
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        result = compose_figure(layout_file, output_dir, fmt="pdf", verbose=False)
+        captured = capsys.readouterr()
+
+        assert result is False
+        assert "Error: Output path is a directory" in captured.err
+        assert "Unexpected error" not in captured.err
+        assert output_dir.exists()
+        assert output_dir.is_dir()
+
     def test_compose_figure_reports_non_positive_source_size(self, tmp_path, capsys):
         """Malformed sources with zero geometry should be reported cleanly."""
         asset_file = tmp_path / "zero_width.svg"

@@ -39,11 +39,9 @@ def test_compose_figure_closes_document_when_png_export_fails(tmp_path):
     mock_pix = MagicMock()
     mock_doc.__getitem__.return_value = mock_page
     mock_page.get_pixmap.return_value = mock_pix
-    mock_pix.save.side_effect = RuntimeError("save failed")
+    mock_pix.tobytes.side_effect = RuntimeError("encode failed")
 
-    with patch("figquilt.compose_pdf.PDFComposer") as mock_composer:
-        mock_composer.return_value.build.return_value = mock_doc
-
+    with patch.object(PDFComposer, "build", return_value=mock_doc):
         result = compose_figure(layout_file, output_file, fmt="png", verbose=False)
 
     assert result is False

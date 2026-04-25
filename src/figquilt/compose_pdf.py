@@ -32,6 +32,16 @@ class PDFComposer(BaseComposer):
         finally:
             doc.close()
 
+    def render_png(self, output_path: Path) -> None:
+        """Render the composed figure to PNG via a temporary PDF document."""
+        doc = self.build()
+        try:
+            page = doc[0]
+            pix = page.get_pixmap(dpi=self.layout.page.dpi)
+            output_path.write_bytes(pix.tobytes("png"))
+        finally:
+            doc.close()
+
     def build(self) -> fitz.Document:
         doc = fitz.open()
         page = doc.new_page(width=self.width_pt, height=self.height_pt)
