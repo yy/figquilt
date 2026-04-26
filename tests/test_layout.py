@@ -464,6 +464,29 @@ layout:
         parse_layout(layout_file)
 
 
+def test_empty_explicit_panel_id_raises_error(tmp_path):
+    """Explicit panel IDs must not be empty strings."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 100
+
+panels:
+  - id: ""
+    file: {panel.name}
+    x: 0
+    y: 0
+    width: 40
+""")
+
+    with pytest.raises(LayoutError, match="Panel IDs must be non-empty"):
+        parse_layout(layout_file)
+
+
 def test_duplicate_yaml_keys_raise_error(tmp_path):
     """Duplicate YAML keys should fail instead of silently overwriting data."""
     panel_a = tmp_path / "a.pdf"
@@ -493,6 +516,36 @@ panels:
 
     with pytest.raises(LayoutError, match=r"duplicate key 'panels'"):
         parse_layout(layout_file, validate_assets=False)
+
+
+def test_yaml_merge_keys_are_resolved(tmp_path):
+    """YAML anchors should be usable for shared panel defaults."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 100
+
+panel_defaults: &panel_defaults
+  x: 0
+  y: 0
+  width: 40
+
+panels:
+  - <<: *panel_defaults
+    id: A
+    file: {panel.name}
+""")
+
+    layout = parse_layout(layout_file)
+
+    assert layout.panels is not None
+    assert layout.panels[0].x == 0
+    assert layout.panels[0].y == 0
+    assert layout.panels[0].width == 40
 
 
 def test_iter_panels_yields_explicit_panels_in_order(tmp_path):

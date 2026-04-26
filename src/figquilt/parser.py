@@ -19,6 +19,8 @@ def _parse_yaml_with_lines(content: str) -> tuple[Any, dict[LocationPath, int]]:
             seen_keys: set[str] = set()
             for key_node, value_node in node.value:
                 key = key_node.value
+                if key == "<<":
+                    continue
                 if key in seen_keys:
                     raise ConstructorError(
                         "while constructing a mapping",
@@ -27,6 +29,10 @@ def _parse_yaml_with_lines(content: str) -> tuple[Any, dict[LocationPath, int]]:
                         key_node.start_mark,
                     )
                 seen_keys.add(key)
+
+            loader.flatten_mapping(node)
+            for key_node, value_node in node.value:
+                key = key_node.value
                 line_map[(*path, key)] = value_node.start_mark.line + 1
                 result[key] = build_line_map(value_node, (*path, key))
             return result

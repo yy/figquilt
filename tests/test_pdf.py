@@ -211,6 +211,26 @@ def test_pdf_composer_uses_pre_resolved_panels():
     mock_resolve.assert_not_called()
 
 
+def test_pdf_composer_compose_closes_document_on_save_failure(tmp_path):
+    """PDF composition should close the built document even when saving fails."""
+    from figquilt.layout import Layout, Page, Panel
+
+    panel = Panel(id="A", file=Path("dummy.pdf"), x=0, y=0, width=50)
+    layout = Layout(page=Page(width=100, height=100, units="pt"), panels=[panel])
+    composer = PDFComposer(layout, panels=[panel])
+    output_file = tmp_path / "output.pdf"
+
+    mock_doc = MagicMock()
+    mock_doc.save.side_effect = RuntimeError("save failed")
+
+    with patch.object(composer, "build", return_value=mock_doc):
+        with pytest.raises(RuntimeError, match="save failed"):
+            composer.compose(output_file)
+
+    mock_doc.save.assert_called_once_with(str(output_file))
+    mock_doc.close.assert_called_once()
+
+
 def test_pdf_composer_render_png_uses_layout_dpi_and_closes_document(tmp_path):
     """PNG rendering should use the page DPI and close the temporary document."""
     from figquilt.layout import Layout, Page, Panel

@@ -26,19 +26,22 @@ _FONT_FAMILY_VARIANTS = {
 
 class PDFComposer(BaseComposer):
     def compose(self, output_path: Path) -> None:
-        doc = self.build()
-        try:
+        with self._built_document() as doc:
             doc.save(str(output_path))
-        finally:
-            doc.close()
 
     def render_png(self, output_path: Path) -> None:
         """Render the composed figure to PNG via a temporary PDF document."""
-        doc = self.build()
-        try:
+        with self._built_document() as doc:
             page = doc[0]
             pix = page.get_pixmap(dpi=self.layout.page.dpi)
             output_path.write_bytes(pix.tobytes("png"))
+
+    @contextmanager
+    def _built_document(self) -> Iterator[fitz.Document]:
+        """Yield a composed PDF document and always close it after use."""
+        doc = self.build()
+        try:
+            yield doc
         finally:
             doc.close()
 

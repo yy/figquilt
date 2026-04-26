@@ -217,6 +217,8 @@ class Layout(BaseModel):
             raise ValueError("Cannot specify both 'panels' and 'layout'")
 
         ids = list(iter_panel_ids(self))
+        if any(panel_id == "" for panel_id in ids):
+            raise ValueError("Panel IDs must be non-empty")
         if len(ids) != len(set(ids)):
             raise ValueError("Panel IDs must be unique")
         return self
