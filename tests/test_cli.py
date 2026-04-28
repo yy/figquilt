@@ -223,6 +223,36 @@ class TestComposeFigure:
         assert output_dir.exists()
         assert output_dir.is_dir()
 
+    def test_compose_figure_rejects_layout_as_output_path(
+        self, valid_layout_data, capsys
+    ):
+        """Output paths must not overwrite the layout file."""
+        layout_file, _ = valid_layout_data
+        original_layout = layout_file.read_text()
+
+        result = compose_figure(layout_file, layout_file, fmt="pdf", verbose=False)
+        captured = capsys.readouterr()
+
+        assert result is False
+        assert "Error: Output path would overwrite input file" in captured.err
+        assert "Unexpected error" not in captured.err
+        assert layout_file.read_text() == original_layout
+
+    def test_compose_figure_rejects_panel_source_as_output_path(
+        self, valid_layout_data, capsys
+    ):
+        """Output paths must not overwrite a panel source file."""
+        layout_file, panel_file = valid_layout_data
+        original_panel = panel_file.read_bytes()
+
+        result = compose_figure(layout_file, panel_file, fmt="pdf", verbose=False)
+        captured = capsys.readouterr()
+
+        assert result is False
+        assert "Error: Output path would overwrite input file" in captured.err
+        assert "Unexpected error" not in captured.err
+        assert panel_file.read_bytes() == original_panel
+
     def test_compose_figure_reports_non_positive_source_size(self, tmp_path, capsys):
         """Malformed sources with zero geometry should be reported cleanly."""
         asset_file = tmp_path / "zero_width.svg"

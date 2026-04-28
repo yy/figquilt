@@ -204,6 +204,23 @@ def _validate_output_path(output_path: Path) -> None:
         raise OutputPathError(f"Output path is a directory: {output_path}")
 
 
+def _validate_output_does_not_overwrite_inputs(
+    output_path: Path, prepared_layout: PreparedLayout
+) -> None:
+    """Reject output paths that would overwrite the layout or panel sources."""
+    resolved_output = output_path.resolve()
+    input_paths = [prepared_layout.path.resolve()]
+    input_paths.extend(
+        panel.file.resolve() for panel in iter_panels(prepared_layout.layout)
+    )
+
+    for input_path in input_paths:
+        if resolved_output == input_path:
+            raise OutputPathError(
+                f"Output path would overwrite input file: {input_path}"
+            )
+
+
 def compose_figure(
     layout_path: Path, output_path: Path, fmt: str, verbose: bool
 ) -> bool:
@@ -220,6 +237,7 @@ def compose_figure(
 
         _validate_output_path(output_path)
         prepared_layout = PreparedLayout.load(layout_path)
+        _validate_output_does_not_overwrite_inputs(output_path, prepared_layout)
         panels: list[Panel] | None = None
         if verbose:
             panels = prepared_layout.resolved_panels()
