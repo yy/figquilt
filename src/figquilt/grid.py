@@ -2,14 +2,22 @@
 
 import math
 from pathlib import Path
-from typing import List
+from typing import NamedTuple
 
 from .images import get_image_size
 from .errors import LayoutError
 from .layout import Layout, LayoutNode, Panel
 
 
-def resolve_layout(layout: Layout) -> List[Panel]:
+class AutoLayoutRow(NamedTuple):
+    """A contiguous row selected by the auto-layout optimizer."""
+
+    start: int
+    end: int
+    height: float
+
+
+def resolve_layout(layout: Layout) -> list[Panel]:
     """
     Resolve a grid-based Layout to a flat list of Panels with computed positions.
 
@@ -27,7 +35,7 @@ def resolve_layout(layout: Layout) -> List[Panel]:
     if layout.layout is None:
         return []
 
-    panels: List[Panel] = []
+    panels: list[Panel] = []
     _resolve_node(layout.layout, 0, 0, content_w, content_h, panels, path=("layout",))
     return panels
 
@@ -45,8 +53,8 @@ def _content_area(layout: Layout) -> tuple[float, float]:
 
 
 def _resolve_explicit_panels(
-    panels: List[Panel], content_w: float, content_h: float, auto_scale: bool
-) -> List[Panel]:
+    panels: list[Panel], content_w: float, content_h: float, auto_scale: bool
+) -> list[Panel]:
     """Resolve explicit panel mode, applying optional page-level auto-scaling."""
     if not auto_scale or not panels:
         return panels
@@ -99,7 +107,7 @@ def _resolve_panel_height(panel: Panel) -> Panel:
     return panel.model_copy(update={"height": resolved_height})
 
 
-def _panel_bounds(panels: List[Panel]) -> tuple[float, float, float, float]:
+def _panel_bounds(panels: list[Panel]) -> tuple[float, float, float, float]:
     """Compute bounding box (left, top, right, bottom) for explicit panels."""
     left = min(panel.x for panel in panels)
     top = min(panel.y for panel in panels)
@@ -148,7 +156,7 @@ def _resolve_auto(
     y: float,
     width: float,
     height: float,
-    panels: List[Panel],
+    panels: list[Panel],
     path: tuple[str, ...],
 ) -> None:
     """Resolve an auto container into ordered leaf panels."""
@@ -162,41 +170,27 @@ def _resolve_auto(
     ]
     weights = [_leaf_weight(child, node.main_scale) for child in children]
 
-    if node.auto_mode == "best":
-        modes = ("one-column", "two-column")
-    else:
-        modes = (node.auto_mode,)
+    best_plan = _select_auto_layout_plan(
+        aspects=aspects,
+        weights=weights,
+        width=width,
+        height=height,
+        gap=node.gap,
+        size_uniformity=node.size_uniformity,
+        auto_mode=node.auto_mode,
+        path=path,
+    )
 
-    best_plan: list[tuple[int, int, float]] | None = None
-    best_score = float("inf")
-    for mode in modes:
-        for target_h in _target_row_heights(mode, n, width, height, node.gap):
-            score, plan = _optimize_rows(
-                aspects=aspects,
-                weights=weights,
-                width=width,
-                height=height,
-                gap=node.gap,
-                size_uniformity=node.size_uniformity,
-                target_row_h=target_h,
-            )
-            if score < best_score:
-                best_score = score
-                best_plan = plan
-
-    if best_plan is None:
-        raise LayoutError(f"Auto layout failed at {'.'.join(path)}")
-
-    total_h = sum(row_h for _, _, row_h in best_plan) + node.gap * (len(best_plan) - 1)
+    total_h = sum(row.height for row in best_plan) + node.gap * (len(best_plan) - 1)
     fit_scale = 1.0 if total_h <= height else height / total_h
 
     cursor_y = y
-    for row_idx, (start, end, row_h) in enumerate(best_plan):
-        scaled_row_h = row_h * fit_scale
+    for row_idx, row in enumerate(best_plan):
+        scaled_row_h = row.height * fit_scale
         cursor_x = x
-        for i in range(start, end):
+        for i in range(row.start, row.end):
             child = children[i]
-            panel_w = aspects[i] * row_h * fit_scale
+            panel_w = aspects[i] * row.height * fit_scale
             panels.append(
                 _panel_from_leaf(
                     child,
@@ -269,6 +263,48 @@ def _target_row_heights(
     return [baseline * m for m in multipliers if baseline * m > 0]
 
 
+def _auto_layout_modes(auto_mode: str) -> tuple[str, ...]:
+    """Return concrete row-layout modes to evaluate for an auto-mode setting."""
+    if auto_mode == "best":
+        return ("one-column", "two-column")
+    return (auto_mode,)
+
+
+def _select_auto_layout_plan(
+    *,
+    aspects: list[float],
+    weights: list[float],
+    width: float,
+    height: float,
+    gap: float,
+    size_uniformity: float,
+    auto_mode: str,
+    path: tuple[str, ...],
+) -> list[AutoLayoutRow]:
+    """Choose the lowest-scoring auto-layout row plan across candidate modes."""
+    best_plan: list[AutoLayoutRow] | None = None
+    best_score = float("inf")
+
+    for mode in _auto_layout_modes(auto_mode):
+        for target_h in _target_row_heights(mode, len(aspects), width, height, gap):
+            score, plan = _optimize_rows(
+                aspects=aspects,
+                weights=weights,
+                width=width,
+                height=height,
+                gap=gap,
+                size_uniformity=size_uniformity,
+                target_row_h=target_h,
+            )
+            if score < best_score:
+                best_score = score
+                best_plan = plan
+
+    if best_plan is None:
+        raise LayoutError(f"Auto layout failed at {'.'.join(path)}")
+    return best_plan
+
+
 def _optimize_rows(
     *,
     aspects: list[float],
@@ -278,12 +314,12 @@ def _optimize_rows(
     gap: float,
     size_uniformity: float,
     target_row_h: float,
-) -> tuple[float, list[tuple[int, int, float]]]:
+) -> tuple[float, list[AutoLayoutRow]]:
     """
     Compute an ordered row partition with dynamic programming.
 
     Returns:
-        (score, rows) where rows is list of (start, end, row_height)
+        (score, rows) where rows contains contiguous source-index ranges.
     """
     n = len(aspects)
     dp = [float("inf")] * (n + 1)
@@ -332,15 +368,15 @@ def _optimize_rows(
     if prev[n] == -1:
         raise LayoutError("Auto layout could not find a valid row partition")
 
-    rows: list[tuple[int, int, float]] = []
+    rows: list[AutoLayoutRow] = []
     idx = n
     while idx > 0:
         start = prev[idx]
-        rows.append((start, idx, row_h_at[idx]))
+        rows.append(AutoLayoutRow(start=start, end=idx, height=row_h_at[idx]))
         idx = start
     rows.reverse()
 
-    total_h = sum(row_h for _, _, row_h in rows) + gap * (len(rows) - 1)
+    total_h = sum(row.height for row in rows) + gap * (len(rows) - 1)
     fit_penalty = ((total_h - height) / max(height, 1e-9)) ** 2
     if total_h > height:
         fit_penalty *= 4.0
@@ -364,7 +400,7 @@ def _resolve_leaf_node(
     y: float,
     width: float,
     height: float,
-    panels: List[Panel],
+    panels: list[Panel],
     path: tuple[str, ...],
 ) -> None:
     """Validate and append a resolved leaf panel."""
@@ -404,7 +440,7 @@ def _resolve_linear_container(
     y: float,
     width: float,
     height: float,
-    panels: List[Panel],
+    panels: list[Panel],
     path: tuple[str, ...],
 ) -> None:
     """Resolve a row/column container by distributing its children on one axis."""
@@ -450,7 +486,7 @@ def _resolve_node(
     y: float,
     width: float,
     height: float,
-    panels: List[Panel],
+    panels: list[Panel],
     path: tuple[str, ...],
 ) -> None:
     """
@@ -460,7 +496,7 @@ def _resolve_node(
         node: The layout node to resolve
         x, y: Top-left position of this node's cell
         width, height: Size of this node's cell
-        panels: List to append resolved panels to
+        panels: list to append resolved panels to
     """
     if not node.is_container():
         _resolve_leaf_node(node, x, y, width, height, panels, path)
