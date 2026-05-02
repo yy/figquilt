@@ -1,3 +1,5 @@
+import os
+import stat
 import sys
 
 import pytest
@@ -8,7 +10,12 @@ import threading
 from typing import List, Callable
 from pathlib import Path
 
-from figquilt.cli import PreparedLayout, compose_figure, run_watch_mode
+from figquilt.cli import (
+    PreparedLayout,
+    _load_watch_targets_for_watch_mode,
+    compose_figure,
+    run_watch_mode,
+)
 from figquilt.layout import Layout, Page, Panel
 
 
@@ -222,6 +229,34 @@ class TestComposeFigure:
         assert "Unexpected error" not in captured.err
         assert output_dir.exists()
         assert output_dir.is_dir()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="chmod(0o555) is not a reliable write guard"
+    )
+    def test_compose_figure_reports_unwritable_output_directory(
+        self, valid_layout_data, tmp_path, capsys
+    ):
+        """Unwritable output directories should fail before the renderer runs."""
+        layout_file, _ = valid_layout_data
+        output_dir = tmp_path / "readonly"
+        output_dir.mkdir()
+        original_mode = output_dir.stat().st_mode
+        output_file = output_dir / "output.pdf"
+
+        try:
+            output_dir.chmod(0o555)
+            if os.access(output_dir, os.W_OK):
+                pytest.skip("test user can still write to chmod 0o555 directories")
+
+            result = compose_figure(layout_file, output_file, fmt="pdf", verbose=False)
+            captured = capsys.readouterr()
+        finally:
+            output_dir.chmod(stat.S_IMODE(original_mode))
+
+        assert result is False
+        assert "Error: Output directory is not writable" in captured.err
+        assert "Unexpected error" not in captured.err
+        assert not output_file.exists()
 
     def test_compose_figure_rejects_layout_as_output_path(
         self, valid_layout_data, capsys
@@ -444,6 +479,22 @@ class TestWatchMode:
 
         assert tmp_path.resolve() in watched_dirs
         assert missing_asset.parent.resolve() not in watched_dirs
+
+    def test_watch_target_loading_includes_recoverable_output_parent(
+        self, valid_layout_data, tmp_path
+    ):
+        """Watch target setup should include a missing output parent path."""
+        layout_file, panel_file = valid_layout_data
+        output_dir = tmp_path / "missing"
+        output_file = output_dir / "output.pdf"
+
+        targets = _load_watch_targets_for_watch_mode(layout_file, output_file)
+
+        assert layout_file.resolve() in targets.files
+        assert panel_file.resolve() in targets.files
+        assert output_dir.resolve() in targets.files
+        assert tmp_path.resolve() in targets.dirs
+        assert output_dir.resolve() not in targets.dirs
 
     def test_watch_mode_rebuilds_on_layout_change(self, valid_layout_data, tmp_path):
         """Watch mode should rebuild when the layout file changes."""

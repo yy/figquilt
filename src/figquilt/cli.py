@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -193,6 +194,19 @@ def _watch_targets_for_output_path(
     return watch_targets.including_path(output_parent)
 
 
+def _load_watch_targets_for_watch_mode(
+    layout_path: Path, output_path: Path
+) -> WatchTargets:
+    """Load watch-mode targets, including paths that can recover failed builds."""
+    watch_targets = WatchTargets.load(
+        layout_path,
+        validate_assets=False,
+        fallback_to_layout_only=True,
+    )
+    assert watch_targets is not None
+    return _watch_targets_for_output_path(watch_targets, output_path)
+
+
 def _validate_output_path(output_path: Path) -> None:
     """Fail fast when the requested output directory is not writable as a path."""
     parent = output_path.parent
@@ -200,6 +214,8 @@ def _validate_output_path(output_path: Path) -> None:
         raise OutputPathError(f"Output directory does not exist: {parent}")
     if not parent.is_dir():
         raise OutputPathError(f"Output path parent is not a directory: {parent}")
+    if not os.access(parent, os.W_OK):
+        raise OutputPathError(f"Output directory is not writable: {parent}")
     if output_path.exists() and output_path.is_dir():
         raise OutputPathError(f"Output path is a directory: {output_path}")
 
@@ -283,13 +299,7 @@ def run_watch_mode(
         print("Initial build failed, watching for changes...")
 
     # Get initial set of watched files and directories
-    watch_targets = WatchTargets.load(
-        layout_path,
-        validate_assets=False,
-        fallback_to_layout_only=True,
-    )
-    assert watch_targets is not None
-    watch_targets = _watch_targets_for_output_path(watch_targets, output_path)
+    watch_targets = _load_watch_targets_for_watch_mode(layout_path, output_path)
 
     while True:
         restart_watcher = False
@@ -315,14 +325,8 @@ def run_watch_mode(
                 # Refresh watch targets from the latest layout even if the rebuild
                 # failed, so newly referenced missing assets can still trigger
                 # another rebuild when they appear.
-                refreshed_targets = WatchTargets.load(
-                    layout_path,
-                    validate_assets=False,
-                    fallback_to_layout_only=True,
-                )
-                assert refreshed_targets is not None
-                refreshed_targets = _watch_targets_for_output_path(
-                    refreshed_targets, output_path
+                refreshed_targets = _load_watch_targets_for_watch_mode(
+                    layout_path, output_path
                 )
                 if refreshed_targets.dirs != watch_targets.dirs:
                     # Directories changed, need to restart the watcher
