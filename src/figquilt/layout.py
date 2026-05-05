@@ -2,7 +2,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Literal, Optional, List
 from pathlib import Path
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 FitMode = Literal["contain", "cover"]
 Alignment = Literal[
@@ -18,7 +18,13 @@ Alignment = Literal[
 ]
 
 
-class LabelStyle(BaseModel):
+class LayoutModel(BaseModel):
+    """Base model for user-authored layout configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class LabelStyle(LayoutModel):
     """Styling options for panel labels."""
 
     enabled: bool = Field(True, description="Whether to show labels")
@@ -35,7 +41,7 @@ class LabelStyle(BaseModel):
     uppercase: bool = Field(True, description="Use uppercase letters")
 
 
-class Panel(BaseModel):
+class Panel(LayoutModel):
     """A figure panel to place on the page (with explicit coordinates)."""
 
     id: str = Field(..., description="Unique identifier for this panel")
@@ -65,7 +71,7 @@ class Panel(BaseModel):
 # Grid layout system
 
 
-class LayoutNode(BaseModel):
+class LayoutNode(LayoutModel):
     """A node in the layout tree - either a container or a leaf panel."""
 
     # Container fields (used when type is "row", "col", or "auto")
@@ -165,7 +171,7 @@ class LayoutNode(BaseModel):
             raise ValueError("Leaf node must have file")
 
 
-class Page(BaseModel):
+class Page(LayoutModel):
     """Page dimensions and default settings."""
 
     width: float = Field(..., gt=0, description="Page width (in specified units)")

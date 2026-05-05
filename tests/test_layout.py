@@ -136,6 +136,34 @@ layout:
     assert "line 14" in message
 
 
+def test_unknown_panel_field_reports_clear_error(tmp_path):
+    """Typos in panel fields should not be silently ignored."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 100
+panels:
+  - id: A
+    file: {panel.name}
+    x: 0
+    y: 0
+    width: 50
+    heigth: 10
+""")
+
+    with pytest.raises(LayoutError) as exc_info:
+        parse_layout(layout_file)
+
+    message = str(exc_info.value)
+    assert "panels.0.heigth" in message
+    assert "line 10" in message
+    assert "Extra inputs are not permitted" in message
+
+
 # Grid layout tests
 
 

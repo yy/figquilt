@@ -3,6 +3,7 @@
   "$id": "https://raw.githubusercontent.com/yy/figquilt/main/schema/layout.schema.json",
   "$defs": {
     "LabelStyle": {
+      "additionalProperties": false,
       "description": "Styling options for panel labels.",
       "properties": {
         "enabled": {
@@ -59,6 +60,7 @@
       "type": "object"
     },
     "LayoutNode": {
+      "additionalProperties": false,
       "description": "A node in the layout tree - either a container or a leaf panel.",
       "properties": {
         "type": {
@@ -259,6 +261,7 @@
       "type": "object"
     },
     "Page": {
+      "additionalProperties": false,
       "description": "Page dimensions and default settings.",
       "properties": {
         "width": {
@@ -330,6 +333,7 @@
       "type": "object"
     },
     "Panel": {
+      "additionalProperties": false,
       "description": "A figure panel to place on the page (with explicit coordinates).",
       "properties": {
         "id": {
