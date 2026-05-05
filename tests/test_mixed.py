@@ -262,6 +262,42 @@ def test_svg_cover_mode_wraps_image_in_clipping_viewport(tmp_path):
     assert label is not None
 
 
+def test_svg_contain_mode_places_image_directly_in_panel_group(tmp_path):
+    """Contain mode should not add the cover-mode clipping viewport."""
+    wide_png = tmp_path / "wide.png"
+    Image.new("RGB", (200, 100), color="red").save(wide_png)
+
+    layout_data = {
+        "page": {"width": 100, "height": 60, "units": "pt", "background": "white"},
+        "panels": [
+            {
+                "id": "A",
+                "file": str(wide_png),
+                "x": 20,
+                "y": 5,
+                "width": 20,
+                "height": 40,
+                "fit": "contain",
+            }
+        ],
+    }
+    layout_file = tmp_path / "layout_contain_direct_image.yaml"
+    with open(layout_file, "w") as f:
+        yaml.dump(layout_data, f)
+
+    layout = parse_layout(layout_file)
+    out_svg = tmp_path / "contain_direct_image.svg"
+    SVGComposer(layout).compose(out_svg)
+
+    root = etree.fromstring(out_svg.read_bytes())
+    ns = "{http://www.w3.org/2000/svg}"
+
+    panel_group = root.find(f".//{ns}g")
+    assert panel_group is not None
+    assert panel_group.find(f"./{ns}svg") is None
+    assert panel_group.find(f"./{ns}image") is not None
+
+
 def test_svg_contain_mode_keeps_label_inside_panel_cell(tmp_path):
     """SVG contain-mode labels should anchor to the panel cell, not letterboxed content."""
     wide_pdf = tmp_path / "wide.pdf"

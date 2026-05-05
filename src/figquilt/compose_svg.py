@@ -1,11 +1,13 @@
 """SVG composer using lxml."""
 
+from __future__ import annotations
+
 import base64
 from pathlib import Path
 
 from lxml import etree
 
-from .base_composer import BaseComposer
+from .base_composer import BaseComposer, CellRect, ContentRect
 from .layout import Panel
 
 _EMBEDDED_MIME_TYPES = {
@@ -55,43 +57,53 @@ class SVGComposer(BaseComposer):
         """Place a panel on the SVG."""
         with self.resolved_panel_source(panel) as resolved:
             geometry = resolved.geometry
-            content_rect = geometry.content
-
-            # Create group for the panel
-            g = etree.SubElement(root, "g")
-            g.set("transform", f"translate({geometry.cell.x}, {geometry.cell.y})")
-
-            # For cover mode, wrap the image in a nested <svg> viewport that
-            # clips content to the cell bounds. An explicit viewBox makes
-            # this work across SVG renderers (including fitz).
-            if panel.fit == "cover":
-                image_parent = etree.SubElement(g, "svg")
-                image_parent.set("x", "0")
-                image_parent.set("y", "0")
-                image_parent.set("width", str(geometry.cell.width))
-                image_parent.set("height", str(geometry.cell.height))
-                image_parent.set(
-                    "viewBox",
-                    f"0 0 {geometry.cell.width} {geometry.cell.height}",
-                )
-                image_parent.set("preserveAspectRatio", "none")
-                image_parent.set("overflow", "hidden")
-            else:
-                image_parent = g
+            g = self._create_panel_group(root, geometry.cell)
+            image_parent = self._image_parent_for_panel(g, panel, geometry.cell)
 
             # Embed content
             self._embed_content(
-                image_parent, panel, content_rect, resolved.source.doc[0]
+                image_parent, panel, geometry.content, resolved.source.doc[0]
             )
 
             # Draw label on the outer group so it isn't clipped
             self._draw_label(g, panel, index)
 
+    def _create_panel_group(self, root: etree.Element, cell: CellRect) -> etree.Element:
+        """Create the translated group that owns one panel's SVG elements."""
+        group = etree.SubElement(root, "g")
+        group.set("transform", f"translate({cell.x}, {cell.y})")
+        return group
+
+    def _image_parent_for_panel(
+        self,
+        panel_group: etree.Element,
+        panel: Panel,
+        cell: CellRect,
+    ) -> etree.Element:
+        """Return the element that should contain the panel image."""
+        if panel.fit == "cover":
+            return self._create_cover_viewport(panel_group, cell)
+        return panel_group
+
+    def _create_cover_viewport(
+        self, parent: etree.Element, cell: CellRect
+    ) -> etree.Element:
+        """Create the nested viewport that clips cover-mode content."""
+        viewport = etree.SubElement(parent, "svg")
+        viewport.set("x", "0")
+        viewport.set("y", "0")
+        viewport.set("width", str(cell.width))
+        viewport.set("height", str(cell.height))
+        viewport.set("viewBox", f"0 0 {cell.width} {cell.height}")
+        viewport.set("preserveAspectRatio", "none")
+        viewport.set("overflow", "hidden")
+        return viewport
+
     def _embed_content(
         self,
         g: etree.Element,
         panel: Panel,
-        content_rect,
+        content_rect: ContentRect,
         src_page,
     ) -> None:
         """Embed the source content into the SVG group."""
