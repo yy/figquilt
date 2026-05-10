@@ -204,7 +204,7 @@ class Page(LayoutModel):
         return self
 
 
-class Layout(BaseModel):
+class Layout(LayoutModel):
     """Root layout object for figquilt."""
 
     page: Page = Field(..., description="Page dimensions and settings")

@@ -441,6 +441,7 @@
       "type": "object"
     }
   },
+  "additionalProperties": false,
   "description": "Root layout object for figquilt.",
   "properties": {
     "page": {

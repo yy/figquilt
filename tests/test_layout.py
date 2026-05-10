@@ -164,6 +164,34 @@ panels:
     assert "Extra inputs are not permitted" in message
 
 
+def test_unknown_root_field_reports_clear_error(tmp_path):
+    """Typos in root layout fields should not be silently ignored."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 100
+panels:
+  - id: A
+    file: {panel.name}
+    x: 0
+    y: 0
+    width: 50
+panles: typo
+""")
+
+    with pytest.raises(LayoutError) as exc_info:
+        parse_layout(layout_file)
+
+    message = str(exc_info.value)
+    assert "panles" in message
+    assert "line 10" in message
+    assert "Extra inputs are not permitted" in message
+
+
 # Grid layout tests
 
 
@@ -574,6 +602,28 @@ panels:
     assert layout.panels[0].x == 0
     assert layout.panels[0].y == 0
     assert layout.panels[0].width == 40
+
+
+def test_parse_layout_without_asset_validation_still_resolves_asset_paths(tmp_path):
+    """Watch mode can track missing files using layout-relative absolute paths."""
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text("""\
+page:
+  width: 100
+  height: 100
+
+layout:
+  type: row
+  children:
+    - id: A
+      file: missing/panel.pdf
+""")
+
+    layout = parse_layout(layout_file, validate_assets=False)
+
+    assert layout.layout is not None
+    assert layout.layout.children is not None
+    assert layout.layout.children[0].file == tmp_path / "missing/panel.pdf"
 
 
 def test_iter_panels_yields_explicit_panels_in_order(tmp_path):

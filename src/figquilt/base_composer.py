@@ -178,19 +178,17 @@ class BaseComposer(ABC):
         """Calculate panel cell geometry and fitted content placement."""
         cell = self.calculate_cell_rect(panel, src_aspect)
 
-        content_w, content_h, offset_x, offset_y = calculate_fit(
-            src_aspect, cell.width, cell.height, panel.fit, panel.align
-        )
+        fit = calculate_fit(src_aspect, cell.width, cell.height, panel.fit, panel.align)
 
         return PanelGeometry(
             cell=cell,
             content=ContentRect(
                 x=cell.x,
                 y=cell.y,
-                width=content_w,
-                height=content_h,
-                offset_x=offset_x,
-                offset_y=offset_y,
+                width=fit.width,
+                height=fit.height,
+                offset_x=fit.offset_x,
+                offset_y=fit.offset_y,
             ),
         )
 

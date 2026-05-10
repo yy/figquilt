@@ -1,3 +1,15 @@
+from typing import NamedTuple
+
+
+class FitResult(NamedTuple):
+    """Computed fitted content size and offset inside a panel cell."""
+
+    width: float
+    height: float
+    offset_x: float
+    offset_y: float
+
+
 def mm_to_pt(mm: float) -> float:
     """Converts millimeters to points (1 inch = 25.4 mm = 72 pts)."""
     return mm * 72 / 25.4
@@ -46,7 +58,7 @@ def calculate_fit(
     cell_h: float,
     fit_mode: str,
     align: str = "center",
-) -> tuple[float, float, float, float]:
+) -> FitResult:
     """
     Calculate content dimensions and offset based on fit mode and alignment.
 
@@ -59,7 +71,7 @@ def calculate_fit(
                top-left, top-right, bottom-left, bottom-right)
 
     Returns:
-        Tuple of (content_w, content_h, offset_x, offset_y)
+        FitResult with fitted width/height and x/y offsets.
     """
     cell_aspect = cell_h / cell_w
 
@@ -91,4 +103,9 @@ def calculate_fit(
     offset_x = space_x * h_factor
     offset_y = space_y * v_factor
 
-    return content_w, content_h, offset_x, offset_y
+    return FitResult(
+        width=content_w,
+        height=content_h,
+        offset_x=offset_x,
+        offset_y=offset_y,
+    )

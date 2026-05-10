@@ -326,6 +326,19 @@ def test_calculate_fit_default_align_is_center():
     assert offset_y == 25  # (100-50)/2
 
 
+def test_calculate_fit_result_names_its_dimensions():
+    """Callers can use named fields instead of positional tuple slots."""
+    from figquilt.units import calculate_fit
+
+    fit = calculate_fit(0.5, 100, 100, "contain")
+
+    assert fit.width == 100
+    assert fit.height == 50
+    assert fit.offset_x == 0
+    assert fit.offset_y == 25
+    assert tuple(fit) == (100, 50, 0, 25)
+
+
 def test_align_in_panel_yaml(tmp_path, wide_pdf):
     """Test that align can be specified in panel YAML."""
     layout_data = {

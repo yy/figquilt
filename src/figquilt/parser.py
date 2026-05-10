@@ -7,6 +7,48 @@ from .layout import Layout, iter_panels
 from .errors import LayoutError, AssetMissingError
 
 LocationPath = tuple[str | int, ...]
+ROOT_LAYOUT_KEYS = {"page", "panels", "layout"}
+YAML_MERGE_TAG = "tag:yaml.org,2002:merge"
+
+
+def _collect_merge_source_node_ids(node: yaml.Node) -> set[int]:
+    """Return node IDs referenced by YAML merge keys beneath this node."""
+    merge_sources: set[int] = set()
+
+    def visit(current: yaml.Node) -> None:
+        if isinstance(current, yaml.MappingNode):
+            for key_node, value_node in current.value:
+                if key_node.tag == YAML_MERGE_TAG or key_node.value == "<<":
+                    if isinstance(value_node, yaml.SequenceNode):
+                        merge_sources.update(
+                            id(item_node) for item_node in value_node.value
+                        )
+                    else:
+                        merge_sources.add(id(value_node))
+                    continue
+                visit(value_node)
+            return
+
+        if isinstance(current, yaml.SequenceNode):
+            for item_node in current.value:
+                visit(item_node)
+
+    visit(node)
+    return merge_sources
+
+
+def _top_level_merge_helper_keys(root: yaml.Node) -> set[str]:
+    """Return root keys that only exist to provide YAML merge defaults."""
+    if not isinstance(root, yaml.MappingNode):
+        return set()
+
+    merge_source_ids = _collect_merge_source_node_ids(root)
+    helper_keys: set[str] = set()
+    for key_node, value_node in root.value:
+        key = key_node.value
+        if key not in ROOT_LAYOUT_KEYS and id(value_node) in merge_source_ids:
+            helper_keys.add(key)
+    return helper_keys
 
 
 def _parse_yaml_with_lines(content: str) -> tuple[Any, dict[LocationPath, int]]:
@@ -50,7 +92,11 @@ def _parse_yaml_with_lines(content: str) -> tuple[Any, dict[LocationPath, int]]:
         root = loader.get_single_node()
         if root is None:
             return None, {}
+        merge_helper_keys = _top_level_merge_helper_keys(root)
         data = build_line_map(root)
+        if isinstance(data, dict):
+            for key in merge_helper_keys:
+                data.pop(key, None)
         return data, line_map
     finally:
         loader.dispose()
@@ -121,9 +167,22 @@ def parse_layout(layout_path: Path, *, validate_assets: bool = True) -> Layout:
     except Exception as e:
         raise LayoutError(f"Layout validation failed: {e}")
 
-    # Validate assets exist relative to the layout file
-    base_dir = layout_path.parent
+    _resolve_layout_asset_paths(
+        layout,
+        base_dir=layout_path.parent,
+        validate_exists=validate_assets,
+    )
 
+    return layout
+
+
+def _resolve_layout_asset_paths(
+    layout: Layout,
+    base_dir: Path,
+    *,
+    validate_exists: bool,
+) -> None:
+    """Resolve every declared panel asset relative to the layout file."""
     for panel in iter_panels(layout):
         if panel.id is None or panel.file is None:
             raise LayoutError("Leaf node must define both 'id' and 'file'")
@@ -131,10 +190,8 @@ def parse_layout(layout_path: Path, *, validate_assets: bool = True) -> Layout:
             panel.id,
             panel.file,
             base_dir,
-            validate_exists=validate_assets,
+            validate_exists=validate_exists,
         )
-
-    return layout
 
 
 def _resolve_asset_path(
