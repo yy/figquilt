@@ -8,6 +8,12 @@
 
 See [CHANGELOG.md](CHANGELOG.md) for full release notes.
 
+### v0.3.0
+
+- Added `figquilt --check` support without requiring an output path for validation-only workflows.
+- Tightened layout validation so invalid numeric values, missing assets, and output/input collisions fail earlier with clearer errors.
+- Improved PDF/SVG `cover` and `contain` rendering geometry and expanded regression tests across CLI, parser, examples, and rendering paths.
+
 ### v0.2.0
 
 - Added `page.auto_scale` to auto-fit oversized/off-page explicit `panels` layouts into the page content area.

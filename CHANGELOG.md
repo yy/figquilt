@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-17
+
+### Highlights
+- Added `figquilt --check` support without requiring an output path, making layout validation easier in scripts and CI.
+- Added checked-in example assets and example-layout tests to guard common usage patterns.
+- Improved layout parsing, asset validation, and error reporting for invalid or missing inputs.
+
+### Behavior and Fixes
+- Tightened layout numeric validation so booleans and quoted numeric strings are rejected early.
+- Prevented outputs from overwriting input figure assets.
+- Fixed PNG format-override output and improved zero-size/unreadable source handling.
+- Improved `cover`/`contain` geometry handling across PDF and SVG rendering.
+- Improved watch mode so missing assets introduced after layout edits are tracked correctly.
+- Rejected non-opaque RGBA colors in `parse_color`.
+
+### Refactoring and Quality
+- Refactored shared composer geometry, panel source handling, label draw-info resolution, and PDF vector embedding.
+- Added shared CLI/watch target data structures and `python -m figquilt` entry point.
+- Expanded tests for CLI behavior, parser asset validation, fit modes, image helpers, package version fallback, examples, and PDF rendering.
+- Test suite: 170 passing tests.
+
 ## [0.2.0] - 2026-02-09
 
 ### Highlights
