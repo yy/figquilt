@@ -1,6 +1,6 @@
 from __future__ import annotations
 from collections.abc import Iterator
-from typing import Literal, Optional, List
+from typing import Annotated, Literal, Optional, List
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -17,6 +17,12 @@ Alignment = Literal[
     "bottom-right",
 ]
 
+StrictFloat = Annotated[float, Field(strict=True)]
+StrictPositiveFloat = Annotated[float, Field(gt=0, strict=True)]
+StrictNonNegativeFloat = Annotated[float, Field(ge=0, strict=True)]
+StrictUnitFloat = Annotated[float, Field(ge=0, le=1, strict=True)]
+StrictPositiveInt = Annotated[int, Field(ge=1, strict=True)]
+
 
 class LayoutModel(BaseModel):
     """Base model for user-authored layout configuration."""
@@ -30,11 +36,11 @@ class LabelStyle(LayoutModel):
     enabled: bool = Field(True, description="Whether to show labels")
     auto_sequence: bool = Field(True, description="Auto-generate labels A, B, C...")
     font_family: str = Field("Helvetica", description="Font family for labels")
-    font_size_pt: float = Field(8.0, gt=0, description="Font size in points")
-    offset_x: float = Field(
+    font_size_pt: StrictPositiveFloat = Field(8.0, description="Font size in points")
+    offset_x: StrictFloat = Field(
         2.0, description="Horizontal offset from panel edge (in page units)"
     )
-    offset_y: float = Field(
+    offset_y: StrictFloat = Field(
         2.0, description="Vertical offset from panel edge (in page units)"
     )
     bold: bool = Field(True, description="Use bold font")
@@ -46,11 +52,11 @@ class Panel(LayoutModel):
 
     id: str = Field(..., description="Unique identifier for this panel")
     file: Path = Field(..., description="Path to source file (PDF, SVG, or PNG)")
-    x: float = Field(..., description="X position from left edge (in page units)")
-    y: float = Field(..., description="Y position from top edge (in page units)")
-    width: float = Field(..., gt=0, description="Panel width (in page units)")
-    height: Optional[float] = Field(
-        None, gt=0, description="Panel height; if omitted, computed from aspect ratio"
+    x: StrictFloat = Field(..., description="X position from left edge (in page units)")
+    y: StrictFloat = Field(..., description="Y position from top edge (in page units)")
+    width: StrictPositiveFloat = Field(..., description="Panel width (in page units)")
+    height: Optional[StrictPositiveFloat] = Field(
+        None, description="Panel height; if omitted, computed from aspect ratio"
     )
     fit: FitMode = Field(
         "contain",
@@ -81,19 +87,23 @@ class LayoutNode(LayoutModel):
     children: Optional[List[LayoutNode]] = Field(
         None, description="Child nodes (containers or leaves)"
     )
-    ratios: Optional[List[float]] = Field(
+    ratios: Optional[List[StrictPositiveFloat]] = Field(
         None, description="Relative sizing of children (e.g., [3, 2] = 60%/40%)"
     )
-    gap: float = Field(0.0, ge=0, description="Gap between children (in page units)")
-    margin: float = Field(0.0, ge=0, description="Inner margin of this container")
+    gap: StrictNonNegativeFloat = Field(
+        0.0, description="Gap between children (in page units)"
+    )
+    margin: StrictNonNegativeFloat = Field(
+        0.0, description="Inner margin of this container"
+    )
     auto_mode: Literal["best", "one-column", "two-column"] = Field(
         "best", description="Auto-layout bias preset"
     )
-    size_uniformity: float = Field(
-        0.6, ge=0, le=1, description="How strongly to favor similar panel sizes"
+    size_uniformity: StrictUnitFloat = Field(
+        0.6, description="How strongly to favor similar panel sizes"
     )
-    main_scale: float = Field(
-        2.0, gt=0, description="Size weight for leaves with role='main'"
+    main_scale: StrictPositiveFloat = Field(
+        2.0, description="Size weight for leaves with role='main'"
     )
 
     # Leaf fields (used when type is None)
@@ -114,8 +124,8 @@ class LayoutNode(LayoutModel):
     role: Literal["normal", "main"] = Field(
         "normal", description="Optional prominence role for auto layout"
     )
-    weight: Optional[float] = Field(
-        None, gt=0, description="Optional explicit size weight for auto layout"
+    weight: Optional[StrictPositiveFloat] = Field(
+        None, description="Optional explicit size weight for auto layout"
     )
 
     @model_validator(mode="after")
@@ -174,17 +184,21 @@ class LayoutNode(LayoutModel):
 class Page(LayoutModel):
     """Page dimensions and default settings."""
 
-    width: float = Field(..., gt=0, description="Page width (in specified units)")
-    height: float = Field(..., gt=0, description="Page height (in specified units)")
+    width: StrictPositiveFloat = Field(
+        ..., description="Page width (in specified units)"
+    )
+    height: StrictPositiveFloat = Field(
+        ..., description="Page height (in specified units)"
+    )
     units: Literal["mm", "inches", "pt"] = Field(
         "mm", description="Units for dimensions"
     )
-    dpi: int = Field(300, ge=1, description="Resolution for rasterized output")
+    dpi: StrictPositiveInt = Field(300, description="Resolution for rasterized output")
     background: Optional[str] = Field(
         "white", description="Background color (name or hex)"
     )
-    margin: float = Field(
-        0.0, ge=0, description="Page margin; panel coordinates are offset by this"
+    margin: StrictNonNegativeFloat = Field(
+        0.0, description="Page margin; panel coordinates are offset by this"
     )
     auto_scale: bool = Field(
         False,

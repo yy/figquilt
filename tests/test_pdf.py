@@ -280,6 +280,32 @@ def test_pdf_composer_render_png_closes_document_on_pixmap_failure(tmp_path):
     mock_doc.close.assert_called_once()
 
 
+def test_pdf_composer_panel_draw_rects_name_cell_and_content_targets():
+    """PDF drawing should keep cell and fitted-content rectangles distinct."""
+    from figquilt.base_composer import CellRect, ContentRect, PanelGeometry
+    from figquilt.layout import Layout, Page, Panel
+
+    panel = Panel(id="A", file=Path("dummy.pdf"), x=0, y=0, width=50)
+    layout = Layout(page=Page(width=100, height=100, units="pt"), panels=[panel])
+    composer = PDFComposer(layout, panels=[panel])
+    geometry = PanelGeometry(
+        cell=CellRect(x=10.0, y=20.0, width=100.0, height=80.0),
+        content=ContentRect(
+            x=10.0,
+            y=20.0,
+            width=60.0,
+            height=40.0,
+            offset_x=5.0,
+            offset_y=7.0,
+        ),
+    )
+
+    draw_rects = composer._panel_draw_rects(geometry)
+
+    assert draw_rects.cell == fitz.Rect(10.0, 20.0, 110.0, 100.0)
+    assert draw_rects.content == fitz.Rect(15.0, 27.0, 75.0, 67.0)
+
+
 def testparse_color_valid_hex(tmp_path, dummy_pdf):
     """Test that valid hex colors are parsed correctly."""
     layout_data = {

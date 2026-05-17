@@ -1,12 +1,13 @@
 """PDF composer using PyMuPDF (fitz)."""
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from collections.abc import Iterator
+from typing import NamedTuple
 
 import fitz
 
-from .base_composer import BaseComposer
+from .base_composer import BaseComposer, CellRect, ContentRect, PanelGeometry
 from .layout import Panel
 from .units import alignment_factors
 
@@ -22,6 +23,13 @@ _FONT_FAMILY_VARIANTS = {
     "times-roman": ("Times-Roman", "Times-Bold"),
     "tiro": ("Times-Roman", "Times-Bold"),
 }
+
+
+class PanelDrawRects(NamedTuple):
+    """PyMuPDF rectangles used to draw one resolved panel."""
+
+    cell: fitz.Rect
+    content: fitz.Rect
 
 
 class PDFComposer(BaseComposer):
@@ -69,21 +77,24 @@ class PDFComposer(BaseComposer):
     def _place_panel(self, page: fitz.Page, panel: Panel, index: int) -> None:
         """Place a panel on the page."""
         with self.resolved_panel_source(panel) as resolved:
-            geometry = resolved.geometry
-            content_draw_rect = self._content_draw_rect(geometry.content)
-            cell_rect = self._fitz_rect(
-                geometry.cell.x,
-                geometry.cell.y,
-                geometry.cell.width,
-                geometry.cell.height,
-            )
+            draw_rects = self._panel_draw_rects(resolved.geometry)
+            self._embed_panel(page, panel, draw_rects, resolved.source.doc)
 
-            if panel.fit == "cover":
-                self._embed_cover(page, cell_rect, resolved.source.doc, panel)
-            else:
-                self._embed_content(page, content_draw_rect, resolved.source.doc, panel)
+        self._draw_label(page, panel, draw_rects.cell, index)
 
-        self._draw_label(page, panel, cell_rect, index)
+    def _embed_panel(
+        self,
+        page: fitz.Page,
+        panel: Panel,
+        draw_rects: PanelDrawRects,
+        src_doc: fitz.Document,
+    ) -> None:
+        """Embed panel content using the rect required by its fit mode."""
+        if panel.fit == "cover":
+            self._embed_cover(page, draw_rects.cell, src_doc, panel)
+            return
+
+        self._embed_content(page, draw_rects.content, src_doc, panel)
 
     def _embed_content(
         self, page: fitz.Page, rect: fitz.Rect, src_doc: fitz.Document, panel: Panel
@@ -179,7 +190,23 @@ class PDFComposer(BaseComposer):
         """Build a PyMuPDF rectangle from an origin and size."""
         return fitz.Rect(x, y, x + width, y + height)
 
-    def _content_draw_rect(self, content_rect) -> fitz.Rect:
+    def _panel_draw_rects(self, geometry: PanelGeometry) -> PanelDrawRects:
+        """Return the draw rectangles for a resolved panel geometry."""
+        return PanelDrawRects(
+            cell=self._cell_draw_rect(geometry.cell),
+            content=self._content_draw_rect(geometry.content),
+        )
+
+    def _cell_draw_rect(self, cell_rect: CellRect) -> fitz.Rect:
+        """Return the destination rect for the full panel cell."""
+        return self._fitz_rect(
+            cell_rect.x,
+            cell_rect.y,
+            cell_rect.width,
+            cell_rect.height,
+        )
+
+    def _content_draw_rect(self, content_rect: ContentRect) -> fitz.Rect:
         """Return the destination rect for fitted panel content."""
         return self._fitz_rect(
             content_rect.x + content_rect.offset_x,

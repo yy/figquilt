@@ -192,6 +192,60 @@ panles: typo
     assert "Extra inputs are not permitted" in message
 
 
+def test_numeric_layout_fields_reject_booleans(tmp_path):
+    """Boolean values should not be coerced into numeric layout dimensions."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: true
+  height: 100
+panels:
+  - id: A
+    file: {panel.name}
+    x: 0
+    y: 0
+    width: 50
+""")
+
+    with pytest.raises(LayoutError) as exc_info:
+        parse_layout(layout_file)
+
+    message = str(exc_info.value)
+    assert "page.width" in message
+    assert "line 2" in message
+    assert "Input should be a valid number" in message
+
+
+def test_numeric_layout_fields_reject_strings(tmp_path):
+    """Quoted numbers should not bypass numeric type validation."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 100
+panels:
+  - id: A
+    file: {panel.name}
+    x: 0
+    y: 0
+    width: "50"
+""")
+
+    with pytest.raises(LayoutError) as exc_info:
+        parse_layout(layout_file)
+
+    message = str(exc_info.value)
+    assert "panels.0.width" in message
+    assert "line 9" in message
+    assert "Input should be a valid number" in message
+
+
 # Grid layout tests
 
 

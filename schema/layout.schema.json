@@ -101,6 +101,7 @@
           "anyOf": [
             {
               "items": {
+                "exclusiveMinimum": 0,
                 "type": "number"
               },
               "type": "array"
