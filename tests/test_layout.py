@@ -246,6 +246,63 @@ panels:
     assert "Input should be a valid number" in message
 
 
+def test_page_boolean_fields_reject_strings(tmp_path):
+    """Quoted booleans should not bypass page option type validation."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 100
+  auto_scale: "false"
+panels:
+  - id: A
+    file: {panel.name}
+    x: 0
+    y: 0
+    width: 50
+""")
+
+    with pytest.raises(LayoutError) as exc_info:
+        parse_layout(layout_file)
+
+    message = str(exc_info.value)
+    assert "page.auto_scale" in message
+    assert "line 4" in message
+    assert "Input should be a valid boolean" in message
+
+
+def test_label_boolean_fields_reject_strings(tmp_path):
+    """Quoted booleans should not bypass label option type validation."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 100
+  label:
+    enabled: "false"
+panels:
+  - id: A
+    file: {panel.name}
+    x: 0
+    y: 0
+    width: 50
+""")
+
+    with pytest.raises(LayoutError) as exc_info:
+        parse_layout(layout_file)
+
+    message = str(exc_info.value)
+    assert "page.label.enabled" in message
+    assert "line 5" in message
+    assert "Input should be a valid boolean" in message
+
+
 # Grid layout tests
 
 

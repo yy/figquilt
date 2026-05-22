@@ -22,6 +22,7 @@ StrictPositiveFloat = Annotated[float, Field(gt=0, strict=True)]
 StrictNonNegativeFloat = Annotated[float, Field(ge=0, strict=True)]
 StrictUnitFloat = Annotated[float, Field(ge=0, le=1, strict=True)]
 StrictPositiveInt = Annotated[int, Field(ge=1, strict=True)]
+StrictBool = Annotated[bool, Field(strict=True)]
 
 
 class LayoutModel(BaseModel):
@@ -33,8 +34,10 @@ class LayoutModel(BaseModel):
 class LabelStyle(LayoutModel):
     """Styling options for panel labels."""
 
-    enabled: bool = Field(True, description="Whether to show labels")
-    auto_sequence: bool = Field(True, description="Auto-generate labels A, B, C...")
+    enabled: StrictBool = Field(True, description="Whether to show labels")
+    auto_sequence: StrictBool = Field(
+        True, description="Auto-generate labels A, B, C..."
+    )
     font_family: str = Field("Helvetica", description="Font family for labels")
     font_size_pt: StrictPositiveFloat = Field(8.0, description="Font size in points")
     offset_x: StrictFloat = Field(
@@ -43,8 +46,8 @@ class LabelStyle(LayoutModel):
     offset_y: StrictFloat = Field(
         2.0, description="Vertical offset from panel edge (in page units)"
     )
-    bold: bool = Field(True, description="Use bold font")
-    uppercase: bool = Field(True, description="Use uppercase letters")
+    bold: StrictBool = Field(True, description="Use bold font")
+    uppercase: StrictBool = Field(True, description="Use uppercase letters")
 
 
 class Panel(LayoutModel):
@@ -200,7 +203,7 @@ class Page(LayoutModel):
     margin: StrictNonNegativeFloat = Field(
         0.0, description="Page margin; panel coordinates are offset by this"
     )
-    auto_scale: bool = Field(
+    auto_scale: StrictBool = Field(
         False,
         description="Auto-fit oversized explicit panel layouts to the page content area",
     )

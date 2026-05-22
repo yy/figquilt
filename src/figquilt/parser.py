@@ -51,41 +51,64 @@ def _top_level_merge_helper_keys(root: yaml.Node) -> set[str]:
     return helper_keys
 
 
+def _build_line_mapped_data(
+    node: yaml.Node,
+    *,
+    loader: yaml.SafeLoader,
+    line_map: dict[LocationPath, int],
+    path: LocationPath = (),
+) -> Any:
+    """Construct Python data from a YAML node while recording source lines."""
+    if isinstance(node, yaml.MappingNode):
+        result = {}
+        seen_keys: set[str] = set()
+        for key_node, _ in node.value:
+            key = key_node.value
+            if key == "<<":
+                continue
+            if key in seen_keys:
+                raise ConstructorError(
+                    "while constructing a mapping",
+                    node.start_mark,
+                    f"found duplicate key {key!r}",
+                    key_node.start_mark,
+                )
+            seen_keys.add(key)
+
+        loader.flatten_mapping(node)
+        for key_node, value_node in node.value:
+            key = key_node.value
+            child_path = (*path, key)
+            line_map[child_path] = value_node.start_mark.line + 1
+            result[key] = _build_line_mapped_data(
+                value_node,
+                loader=loader,
+                line_map=line_map,
+                path=child_path,
+            )
+        return result
+
+    if isinstance(node, yaml.SequenceNode):
+        result = []
+        for i, item_node in enumerate(node.value):
+            child_path = (*path, i)
+            line_map[child_path] = item_node.start_mark.line + 1
+            result.append(
+                _build_line_mapped_data(
+                    item_node,
+                    loader=loader,
+                    line_map=line_map,
+                    path=child_path,
+                )
+            )
+        return result
+
+    return yaml.safe_load(yaml.serialize(node))
+
+
 def _parse_yaml_with_lines(content: str) -> tuple[Any, dict[LocationPath, int]]:
     """Parse YAML and return data along with a mapping of paths to line numbers."""
     line_map: dict[LocationPath, int] = {}
-
-    def build_line_map(node: yaml.Node, path: LocationPath = ()) -> Any:
-        if isinstance(node, yaml.MappingNode):
-            result = {}
-            seen_keys: set[str] = set()
-            for key_node, value_node in node.value:
-                key = key_node.value
-                if key == "<<":
-                    continue
-                if key in seen_keys:
-                    raise ConstructorError(
-                        "while constructing a mapping",
-                        node.start_mark,
-                        f"found duplicate key {key!r}",
-                        key_node.start_mark,
-                    )
-                seen_keys.add(key)
-
-            loader.flatten_mapping(node)
-            for key_node, value_node in node.value:
-                key = key_node.value
-                line_map[(*path, key)] = value_node.start_mark.line + 1
-                result[key] = build_line_map(value_node, (*path, key))
-            return result
-        elif isinstance(node, yaml.SequenceNode):
-            result = []
-            for i, item_node in enumerate(node.value):
-                line_map[(*path, i)] = item_node.start_mark.line + 1
-                result.append(build_line_map(item_node, (*path, i)))
-            return result
-        else:
-            return yaml.safe_load(yaml.serialize(node))
 
     loader = yaml.SafeLoader(content)
     try:
@@ -93,7 +116,7 @@ def _parse_yaml_with_lines(content: str) -> tuple[Any, dict[LocationPath, int]]:
         if root is None:
             return None, {}
         merge_helper_keys = _top_level_merge_helper_keys(root)
-        data = build_line_map(root)
+        data = _build_line_mapped_data(root, loader=loader, line_map=line_map)
         if isinstance(data, dict):
             for key in merge_helper_keys:
                 data.pop(key, None)
