@@ -52,6 +52,39 @@ def alignment_factors(align: str) -> tuple[float, float]:
     return _ALIGNMENT_OFFSETS.get(align, (0.5, 0.5))
 
 
+def _scaled_content_size(
+    src_aspect: float,
+    cell_w: float,
+    cell_h: float,
+    *,
+    cover: bool,
+) -> tuple[float, float]:
+    """Return source dimensions scaled to either contain or cover the cell."""
+    cell_aspect = cell_h / cell_w
+    fit_by_width = src_aspect <= cell_aspect
+    if cover:
+        fit_by_width = not fit_by_width
+
+    if fit_by_width:
+        return cell_w, cell_w * src_aspect
+    return cell_h / src_aspect, cell_h
+
+
+def _alignment_offsets(
+    *,
+    cell_w: float,
+    cell_h: float,
+    content_w: float,
+    content_h: float,
+    align: str,
+) -> tuple[float, float]:
+    """Return content offsets within the cell for the configured alignment."""
+    space_x = cell_w - content_w
+    space_y = cell_h - content_h
+    h_factor, v_factor = alignment_factors(align)
+    return space_x * h_factor, space_y * v_factor
+
+
 def calculate_fit(
     src_aspect: float,
     cell_w: float,
@@ -73,35 +106,19 @@ def calculate_fit(
     Returns:
         FitResult with fitted width/height and x/y offsets.
     """
-    cell_aspect = cell_h / cell_w
-
-    if fit_mode == "cover":
-        # Scale to cover entire cell (may crop)
-        if src_aspect > cell_aspect:
-            # Source is taller: scale by width, crop top/bottom
-            content_w = cell_w
-            content_h = cell_w * src_aspect
-        else:
-            # Source is wider: scale by height, crop left/right
-            content_h = cell_h
-            content_w = cell_h / src_aspect
-    else:  # contain (default)
-        # Scale to fit within cell, preserving aspect ratio
-        if src_aspect > cell_aspect:
-            # Source is taller: fit by height
-            content_h = cell_h
-            content_w = cell_h / src_aspect
-        else:
-            # Source is wider: fit by width
-            content_w = cell_w
-            content_h = cell_w * src_aspect
-
-    # Calculate offsets based on alignment using lookup table
-    space_x = cell_w - content_w
-    space_y = cell_h - content_h
-    h_factor, v_factor = alignment_factors(align)
-    offset_x = space_x * h_factor
-    offset_y = space_y * v_factor
+    content_w, content_h = _scaled_content_size(
+        src_aspect,
+        cell_w,
+        cell_h,
+        cover=fit_mode == "cover",
+    )
+    offset_x, offset_y = _alignment_offsets(
+        cell_w=cell_w,
+        cell_h=cell_h,
+        content_w=content_w,
+        content_h=content_h,
+        align=align,
+    )
 
     return FitResult(
         width=content_w,

@@ -339,6 +339,18 @@ def test_calculate_fit_result_names_its_dimensions():
     assert tuple(fit) == (100, 50, 0, 25)
 
 
+def test_calculate_fit_cover_preserves_alignment_offsets():
+    """Cover mode should keep overflow offsets alignment-aware."""
+    from figquilt.units import calculate_fit
+
+    fit = calculate_fit(0.5, 100, 100, "cover", "right")
+
+    assert fit.width == 200
+    assert fit.height == 100
+    assert fit.offset_x == -100
+    assert fit.offset_y == 0
+
+
 def test_align_in_panel_yaml(tmp_path, wide_pdf):
     """Test that align can be specified in panel YAML."""
     layout_data = {
