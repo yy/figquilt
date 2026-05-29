@@ -303,6 +303,58 @@ panels:
     assert "Input should be a valid boolean" in message
 
 
+def test_page_background_rejects_invalid_color_names(tmp_path):
+    """Background typos should fail before renderers handle them inconsistently."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 100
+  background: not-a-color
+panels:
+  - id: A
+    file: {panel.name}
+    x: 0
+    y: 0
+    width: 50
+""")
+
+    with pytest.raises(LayoutError) as exc_info:
+        parse_layout(layout_file)
+
+    message = str(exc_info.value)
+    assert "page.background" in message
+    assert "line 4" in message
+    assert "Background must be a valid CSS color name" in message
+
+
+def test_page_background_accepts_short_hex_color(tmp_path):
+    """Supported shorthand hex colors should remain valid."""
+    panel = tmp_path / "panel.pdf"
+    panel.touch()
+
+    layout_file = tmp_path / "layout.yaml"
+    layout_file.write_text(f"""\
+page:
+  width: 100
+  height: 100
+  background: "#abc"
+panels:
+  - id: A
+    file: {panel.name}
+    x: 0
+    y: 0
+    width: 50
+""")
+
+    layout = parse_layout(layout_file)
+
+    assert layout.page.background == "#abc"
+
+
 # Grid layout tests
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Annotated, Literal, Optional, List
 from pathlib import Path
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 FitMode = Literal["contain", "cover"]
 Alignment = Literal[
@@ -210,6 +210,31 @@ class Page(LayoutModel):
     label: LabelStyle = Field(
         default_factory=LabelStyle, description="Default label style"
     )
+
+    @field_validator("background")
+    @classmethod
+    def validate_background_color(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+
+        try:
+            if value.startswith("#"):
+                hex_value = value[1:]
+                if len(hex_value) == 3:
+                    hex_value = "".join(ch * 2 for ch in hex_value)
+                if len(hex_value) != 6:
+                    raise ValueError
+                int(hex_value, 16)
+                return value
+
+            from PIL import ImageColor
+
+            ImageColor.getrgb(value)
+            return value
+        except (ImportError, ValueError):
+            raise ValueError(
+                "Background must be a valid CSS color name or #rgb/#rrggbb hex color"
+            ) from None
 
     @model_validator(mode="after")
     def validate_margin(self) -> Page:
