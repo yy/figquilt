@@ -63,3 +63,25 @@ def test_pdf_composer_closes_document_when_save_fails():
             composer.compose(Path("output.pdf"))
 
     mock_doc.close.assert_called_once()
+
+
+def test_pdf_composer_closes_document_when_build_fails():
+    """Panel rendering failures should close the partially built document."""
+    panel = Panel(id="A", file=Path("dummy.pdf"), x=0, y=0, width=50)
+    layout = Layout(
+        page=Page(width=100, height=100, units="mm", background=None),
+        panels=[panel],
+    )
+    composer = PDFComposer(layout, panels=[panel])
+    mock_doc = MagicMock()
+
+    with (
+        patch("figquilt.compose_pdf.fitz.open", return_value=mock_doc),
+        patch.object(
+            composer, "_place_panel", side_effect=RuntimeError("render failed")
+        ),
+        pytest.raises(RuntimeError, match="render failed"),
+    ):
+        composer.build()
+
+    mock_doc.close.assert_called_once()

@@ -55,13 +55,17 @@ class PDFComposer(BaseComposer):
 
     def build(self) -> fitz.Document:
         doc = fitz.open()
-        page = doc.new_page(width=self.width_pt, height=self.height_pt)
+        try:
+            page = doc.new_page(width=self.width_pt, height=self.height_pt)
 
-        self._draw_background(page)
+            self._draw_background(page)
 
-        panels = self.get_panels()
-        for i, panel in enumerate(panels):
-            self._place_panel(page, panel, index=i)
+            panels = self.get_panels()
+            for i, panel in enumerate(panels):
+                self._place_panel(page, panel, index=i)
+        except Exception:
+            doc.close()
+            raise
 
         return doc
 
