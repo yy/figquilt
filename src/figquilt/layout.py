@@ -24,6 +24,21 @@ StrictUnitFloat = Annotated[float, Field(ge=0, le=1, strict=True)]
 StrictPositiveInt = Annotated[int, Field(ge=1, strict=True)]
 StrictBool = Annotated[bool, Field(strict=True)]
 
+_CONTAINER_NODE_FIELDS = frozenset(
+    {
+        "children",
+        "ratios",
+        "gap",
+        "margin",
+        "auto_mode",
+        "size_uniformity",
+        "main_scale",
+    }
+)
+_LEAF_NODE_FIELDS = frozenset(
+    {"fit", "align", "label", "label_style", "role", "weight"}
+)
+
 
 class LayoutModel(BaseModel):
     """Base model for user-authored layout configuration."""
@@ -153,6 +168,13 @@ class LayoutNode(LayoutModel):
         return self.type is not None
 
     def _validate_container_node(self) -> None:
+        unsupported_fields = sorted(self.model_fields_set & _LEAF_NODE_FIELDS)
+        if unsupported_fields:
+            raise ValueError(
+                "Container node does not support leaf fields: "
+                + ", ".join(unsupported_fields)
+            )
+
         if not self.children:
             raise ValueError("Container must have children")
 
@@ -178,6 +200,13 @@ class LayoutNode(LayoutModel):
             raise ValueError("All ratios must be > 0")
 
     def _validate_leaf_node(self) -> None:
+        unsupported_fields = sorted(self.model_fields_set & _CONTAINER_NODE_FIELDS)
+        if unsupported_fields:
+            raise ValueError(
+                "Leaf node does not support container fields: "
+                + ", ".join(unsupported_fields)
+            )
+
         if not self.id:
             raise ValueError("Leaf node must have id")
         if not self.file:

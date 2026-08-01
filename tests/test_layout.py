@@ -524,6 +524,28 @@ def test_layout_node_rejects_mixed_container_and_leaf_fields():
         )
 
 
+def test_layout_node_rejects_container_fields_on_leaf():
+    from figquilt.layout import LayoutNode
+
+    with pytest.raises(
+        ValidationError, match="Leaf node does not support container fields: gap"
+    ):
+        LayoutNode(id="A", file=Path("a.pdf"), gap=5)
+
+
+def test_layout_node_rejects_leaf_fields_on_container():
+    from figquilt.layout import LayoutNode
+
+    with pytest.raises(
+        ValidationError, match="Container node does not support leaf fields: fit"
+    ):
+        LayoutNode(
+            type="row",
+            children=[LayoutNode(id="A", file=Path("a.pdf"))],
+            fit="cover",
+        )
+
+
 def test_layout_node_rejects_ratio_count_mismatch():
     with pytest.raises(
         ValidationError,
